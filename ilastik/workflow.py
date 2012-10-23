@@ -11,3 +11,7 @@ class Workflow( object ):
     @abstractproperty
     def imageNameListSlot(self):
         return None
+
+    @property
+    def finalOutputSlot(self):
+        return None

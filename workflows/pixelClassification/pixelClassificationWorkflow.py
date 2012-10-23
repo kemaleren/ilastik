@@ -121,3 +121,7 @@ class PixelClassificationWorkflow(Workflow):
     def graph( self ):
         '''the lazyflow graph shared by the applets'''
         return self._graph
+
+    @property
+    def finalOutputSlot(self):
+        return self.pcApplet.topLevelOperator.PredictionProbabilities
