@@ -179,6 +179,8 @@ class CarvingGui(LabelingGui):
                 print "randomizing colors ..."
                 makeColortable()
                 self._doneSegmentationLayer.colorTable = self._doneSegmentationColortable
+                if self._renderMgr.ready:
+                    self._update_rendering()
         self.labelingDrawerUi.randomizeColors.clicked.connect(onRandomizeColors)
 
     def handleEditorRightClick(self, currentImageIndex, position5d, globalWindowCoordinate):
