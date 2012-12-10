@@ -218,6 +218,10 @@ class CarvingGui(LabelingGui):
         if not self._renderMgr.ready:
             self._renderMgr.setup(op._mst.raw.shape)
 
+        # remove nonexistent objects
+        self._shownObjects3D = dict((k, v) for k, v in self._shownObjects3D.iteritems()
+                                    if k in op._mst.object_lut.keys())
+
         lut = numpy.zeros(len(op._mst.objects.lut), dtype=numpy.int32)
         for name, label in self._shownObjects3D.iteritems():
             objectSupervoxels = op._mst.object_lut[name]
