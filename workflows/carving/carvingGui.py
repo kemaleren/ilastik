@@ -222,6 +222,18 @@ class CarvingGui(LabelingGui):
             lut[objectSupervoxels] = label
 
         self._renderMgr.volume = lut[op._mst.regionVol]
+        self._update_colors()
+        self._renderMgr.update()
+
+    def _update_colors(self):
+        op = self._carvingApplet.topLevelOperator.opCarving[self.imageIndex]
+        ctable = self._doneSegmentationLayer.colorTable
+
+        for name, label in self._shownObjects3D.iteritems():
+            color = QColor(ctable[op._mst.object_names[name]])
+            color = (color.red() / 255.0, color.green() / 255.0, color.blue() / 255.0)
+            self._renderMgr.setColor(label, color)
+
 
     def getNextLabelName(self):
         l = len(self._labelControlUi.labelListModel)
