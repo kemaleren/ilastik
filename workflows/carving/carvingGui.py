@@ -323,12 +323,15 @@ class CarvingGui(LabelingGui):
         #done seg
         doneSeg = self._carvingApplet.topLevelOperator.opCarving.DoneSegmentation[currentImageIndex]
         if doneSeg.ready():
-            layer = ColortableLayer(LazyflowSource(doneSeg), self._doneSegmentationColortable, direct=True)
-            layer.name = "done seg"
-            layer.visible = False
-            layer.opacity = 0.5
-            self._doneSegmentationLayer = layer
-            layers.append(layer)
+            if self._doneSegmentationLayer is None:
+                layer = ColortableLayer(LazyflowSource(doneSeg), self._doneSegmentationColortable, direct=True)
+                layer.name = "done seg"
+                layer.visible = False
+                layer.opacity = 0.5
+                self._doneSegmentationLayer = layer
+                layers.append(layer)
+            else:
+                layers.append(self._doneSegmentationLayer)
 
         #supervoxel
         sv = self._carvingApplet.topLevelOperator.opCarving.Supervoxels[currentImageIndex]
