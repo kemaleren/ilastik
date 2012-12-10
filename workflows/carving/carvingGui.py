@@ -186,17 +186,17 @@ class CarvingGui(LabelingGui):
 
         op = self._carvingApplet.topLevelOperator.opCarving[self.imageIndex]
 
-        m = QMenu(self)
-        m.addAction("position %d %d %d" % (position5d[1], position5d[2], position5d[3]))
-        for n in names:
-            m.addAction("edit %s" % n)
-            m.addAction("delete %s" % n)
-            if n in self._shownObjects3D:
-                m.addAction("remove %s from 3D view" % n)
+        menu = QMenu(self)
+        menu.addAction("position %d %d %d" % (position5d[1], position5d[2], position5d[3]))
+        for name in names:
+            menu.addAction("edit %s" % name)
+            menu.addAction("delete %s" % name)
+            if name in self._shownObjects3D:
+                menu.addAction("remove %s from 3D view" % name)
             else:
-                m.addAction("show 3D %s" % n)
+                menu.addAction("show 3D %s" % name)
 
-        act = m.exec_(globalWindowCoordinate)
+        act = menu.exec_(globalWindowCoordinate)
         for name in names:
             if act is not None and act.text() == "edit %s" %name:
                 self._carvingApplet.topLevelOperator.loadObject(name, self.imageIndex)
@@ -206,8 +206,7 @@ class CarvingGui(LabelingGui):
                 label = self._renderMgr.addObject()
                 self._shownObjects3D[name] = label
                 self._update_rendering()
-
-            elif act is not None and act.text() == "remove %s from 3D view" % n:
+            elif act is not None and act.text() == "remove %s from 3D view" % name:
                 label = self._shownObjects3D.pop(name)
                 self._renderMgr.removeObject(label)
                 self._update_rendering()
