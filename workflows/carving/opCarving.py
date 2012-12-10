@@ -95,7 +95,7 @@ class OpCarving(Operator):
                 continue
             print name,
             self._done_lut[objectSupervoxels] += 1
-            self._done_seg_lut[objectSupervoxels] = i+1
+            self._done_seg_lut[objectSupervoxels] = self._mst.object_names[name]
         print ""
 
     def dataIsStorable(self):
