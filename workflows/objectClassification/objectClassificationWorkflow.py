@@ -14,25 +14,39 @@ from lazyflow.operators.ioOperators.opInputDataReader import OpInputDataReader
 from lazyflow.operators import OpAttributeSelector
 
 class ObjectClassificationWorkflow(Workflow):
+    name = "Object Classification Workflow"
 
-    def __init__(self):
-        graph = Graph()
-        super(ObjectClassificationWorkflow, self).__init__(graph = graph)
-        self._applets = []
+    def __init__( self, headless, *args, **kwargs ):
+        graph = kwargs['graph'] if 'graph' in kwargs else Graph()
+        if 'graph' in kwargs: del kwargs['graph']
+        super(ObjectClassificationWorkflow, self).__init__(headless=headless, graph=graph, *args, **kwargs)
 
         ######################
         # Interactive workflow
         ######################
 
         ## Create applets
-        self.projectMetadataApplet = ProjectMetadataApplet()
         self.dataSelectionApplet = DataSelectionApplet(self,
-                                                       "Input Segmentation",
+                                                       "Input: Segmentation",
                                                        "Input Segmentation",
                                                        batchDataGui=False)
-        self.objectExtractionApplet = ObjectExtractionApplet(self)
-        self.objectClassificationApplet = ObjectClassificationApplet(self)
+        self.objectExtractionApplet = ObjectExtractionApplet(workflow=self)
+        self.objectClassificationApplet = ObjectClassificationApplet(workflow=self)
 
+        self._applets = []
+        self._applets.append(self.dataSelectionApplet)
+        self._applets.append(self.objectExtractionApplet)
+        self._applets.append(self.objectClassificationApplet)
+
+    @property
+    def applets(self):
+        return self._applets
+
+    @property
+    def imageNameListSlot(self):
+        return self.dataSelectionApplet.topLevelOperator.ImageName
+
+    def connectLane( self, laneIndex ):
         ## Access applet operators
         opData = self.dataSelectionApplet.topLevelOperator
         opObjExtraction = self.objectExtractionApplet.topLevelOperator
@@ -46,29 +60,7 @@ class ObjectClassificationWorkflow(Workflow):
         opObjClassification.LabelsAllowedFlags.connect(opData.AllowLabels)
 
         # connect extraction -> classification
-        opObjClassification.SegmentationImages.connect(opObjExtraction.SegmentationImage)
+        opObjClassification.SegmentationImages.connect(opObjExtraction.LabelImage)
         opObjClassification.ObjectFeatures.connect(opObjExtraction.RegionFeatures)
         opObjClassification.ObjectCounts.connect(opObjExtraction.ObjectCounts)
 
-        self._applets.append(self.projectMetadataApplet)
-        self._applets.append(self.dataSelectionApplet)
-        self._applets.append(self.objectExtractionApplet)
-        self._applets.append(self.objectClassificationApplet)
-
-        # The shell needs a slot from which he can read the list of
-        # image names to switch between. Use an OpAttributeSelector to
-        # create a slot containing just the filename from the
-        # OpDataSelection's DatasetInfo slot.
-        opSelectFilename = OperatorWrapper(OpAttributeSelector, graph=graph)
-        opSelectFilename.InputObject.connect(opData.Dataset)
-        opSelectFilename.AttributeName.setValue('filePath')
-
-        self._imageNameListSlot = opSelectFilename.Result
-
-    @property
-    def applets(self):
-        return self._applets
-
-    @property
-    def imageNameListSlot(self):
-        return self._imageNameListSlot
