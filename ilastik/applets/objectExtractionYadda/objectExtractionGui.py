@@ -75,34 +75,6 @@ class ObjectExtractionGui( LayerViewerGui ):
             #self.layerstack.append( layer )
         return layers
 
-    '''
-    def setImageIndex( self, imageIndex ):
-        mainOperator = self.mainOperator.innerOperators[imageIndex]
-        self.curOp = mainOperator
-
-        ct = colortables.create_default_8bit()
-        self.binaryimagesrc = LazyflowSource( mainOperator.BinaryImage )
-        layer = GrayscaleLayer( self.binaryimagesrc, range=(0,1), normalize=(0,1) )
-        layer.name = "Binary Image"
-        self.layerstack.append(layer)
-
-        ct = colortables.create_default_16bit()
-        self.objectssrc = LazyflowSource( mainOperator.SegmentationImage )
-        ct[0] = QColor(0,0,0,0).rgba() # make 0 transparent
-        layer = ColortableLayer( self.objectssrc, ct )
-        layer.name = "Label Image"
-        layer.opacity = 0.5
-        self.layerstack.append(layer)
-
-        self.centerimagesrc = LazyflowSource( mainOperator.ObjectCenterImage )
-        layer = RGBALayer( red=ConstantSource(255), alpha=self.centerimagesrc )
-        layer.name = "Object Centers"
-        self.layerstack.append( layer )
-
-        if mainOperator.BinaryImage.meta.shape:
-            self.editor.dataShape = mainOperator.SegmentationImage.meta.shape
-        mainOperator.BinaryImage.notifyMetaChanged( self._onMetaChanged )
-    '''
     def reset( self ):
         pass
 
@@ -114,58 +86,7 @@ class ObjectExtractionGui( LayerViewerGui ):
         """
         super(ObjectExtractionGui, self).__init__(mainOperator)
         self.mainOperator = mainOperator
-        #self.curOp = None
-        #self.layerstack = LayerStackModel()
 
-        #self.rawsrc = LazyflowSource( self.mainOperator.RawData )
-        #layerraw = GrayscaleLayer( self.rawsrc )
-        #layerraw.name = "Raw"
-        #self.layerstack.append( layerraw )
-
-        #Comment this stuff out, it's called by the parent
-        '''
-        self._viewerControlWidget = None
-        self._initViewerControlUi()
-
-        self.editor = None
-        self._initEditor()
-
-        self._initAppletDrawerUi()
-        '''
-
-    '''
-    def _onMetaChanged( self, slot ):
-        if slot is self.curOp.BinaryImage:
-            if slot.meta.shape:
-                self.editor.dataShape = slot.meta.shape
-
-    def _initEditor(self):
-        """
-        Initialize the Volume Editor GUI.
-        """
-
-        self.editor = VolumeEditor(self.layerstack)
-
-        #self.editor.newImageView2DFocus.connect(self.setIconToViewMenu)
-        #self.editor.setInteractionMode( 'navigation' )
-        self.volumeEditorWidget = VolumeEditorWidget()
-        self.volumeEditorWidget.init(self.editor)
-
-        # The editor's layerstack is in charge of which layer movement buttons are enabled
-        model = self.editor.layerStack
-        model.canMoveSelectedUp.connect(self._viewerControlWidget.UpButton.setEnabled)
-        model.canMoveSelectedDown.connect(self._viewerControlWidget.DownButton.setEnabled)
-        model.canDeleteSelected.connect(self._viewerControlWidget.DeleteButton.setEnabled)
-
-        # Connect our layer movement buttons to the appropriate layerstack actions
-        self._viewerControlWidget.layerWidget.init(model)
-        self._viewerControlWidget.UpButton.clicked.connect(model.moveSelectedUp)
-        self._viewerControlWidget.DownButton.clicked.connect(model.moveSelectedDown)
-        self._viewerControlWidget.DeleteButton.clicked.connect(model.deleteSelected)
-
-        self.editor._lastImageViewFocus = 0
-
-    '''
     def initAppletDrawerUi(self):
         # Load the ui file (find it in our own directory)
         localDir = os.path.split(__file__)[0]
@@ -177,7 +98,6 @@ class ObjectExtractionGui( LayerViewerGui ):
     def initViewerControlUi( self ):
         p = os.path.split(__file__)[0]+'/'
         if p == "/": p = "."+p
-        #self._viewerControlWidget = uic.loadUi(p+"viewerControls.ui")
         pdir = p.split("/")[1:-2]
         path = ""
         for pd in pdir:
