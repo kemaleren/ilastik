@@ -17,10 +17,11 @@ from functools import partial
 
 from ilastik.applets.pixelClassification.opPixelClassification import OpShapeReader, OpMaxValue
 from ilastik.utility.operatorSubView import OperatorSubView
+from ilastik.utility.multiLaneOperator import MultiLaneOperatorABC
 
 _MAXLABELS = 2
 
-class OpObjectClassification(Operator):
+class OpObjectClassification(Operator, MultiLaneOperatorABC):
     name = "OpObjectClassification"
     category = "Top-level"
 
