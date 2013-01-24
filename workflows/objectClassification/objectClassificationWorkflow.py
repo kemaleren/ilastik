@@ -48,9 +48,9 @@ class ObjectClassificationWorkflow(Workflow):
 
     def connectLane( self, laneIndex ):
         ## Access applet operators
-        opData = self.dataSelectionApplet.topLevelOperator
-        opObjExtraction = self.objectExtractionApplet.topLevelOperator
-        opObjClassification = self.objectClassificationApplet.topLevelOperator
+        opData = self.dataSelectionApplet.topLevelOperator.getLane(laneIndex)
+        opObjExtraction = self.objectExtractionApplet.topLevelOperator.getLane(laneIndex)
+        opObjClassification = self.objectClassificationApplet.topLevelOperator.getLane(laneIndex)
 
         # connect data -> extraction
         opObjExtraction.BinaryImage.connect(opData.Image)
