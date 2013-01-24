@@ -40,12 +40,11 @@ class ObjectExtractionGui( LayerViewerGui ):
     def viewerControlWidget( self ):
         return self._viewerControlWidget
 
-    def setupLayers(self, currentImageIndex):
+    def setupLayers(self):
 
         layers = []
-        mainOperator = self.operatorForCurrentImage()
+        mainOperator = self.mainOperator
 
-        #inputSlot = self.pipeline.InputImages[currentImageIndex]
         binarySlot = mainOperator.BinaryImage
         segmentationSlot = mainOperator.SegmentationImage
         centerSlot = mainOperator.ObjectCenterImage
@@ -213,7 +212,7 @@ class ObjectExtractionGui( LayerViewerGui ):
 
     def _onExtractObjectsButtonPressed( self ):
 
-        oper = self.operatorForCurrentImage()
+        oper = self.mainOperator
         m = oper.SegmentationImage.meta
         if m.axistags.axisTypeCount(vigra.AxisType.Time) >0:
             maxt = oper.SegmentationImage.meta.shape[0]

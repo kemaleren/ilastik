@@ -7,27 +7,25 @@ from objectClassificationSerializer import ObjectClassificationSerializer
 from lazyflow.graph import OperatorWrapper
 
 class ObjectClassificationApplet( StandardApplet ):
-    def __init__(self, 
-                 name="Object Classification",                 
+    def __init__(self,
+                 name="Object Classification",
                  workflow=None,
                  projectFileGroupName="ObjectClassification"):
+        self._topLevelOperator = OpObjectClassification(parent=workflow)
         super(ObjectClassificationApplet, self).__init__( name=name, workflow=workflow )
+
         self._serializableItems = [
             ObjectClassificationSerializer(self.topLevelOperator,
                                            projectFileGroupName)]
-        
-    @property
-    def singleLaneOperatorClass( self ):
-        return OpObjectClassification
 
     @property
-    def broadcastingSlots( self ):
-        return []
-
-    @property
-    def singleLaneGuiClass( self ):
-        return ObjectClassificationGui
+    def topLevelOperator(self):
+        return self._topLevelOperator
 
     @property
     def dataSerializers(self):
         return self._serializableItems
+
+    def createSingleLaneGui(self, imageLaneIndex):
+        singleImageOperator = self.topLevelOperator.getLane(imageLaneIndex)
+        return ObjectClassificationGui( singleImageOperator, self.shellRequestSignal, self.guiControlSignal)

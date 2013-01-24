@@ -45,17 +45,17 @@ class ObjectClassificationGui(LabelingGui):
         self.labelingDrawerUi.checkShowPredictions.setChecked(False)
 
     @traceLogged(traceLogger)
-    def __init__(self, pipeline, guiControlSignal, shellRequestSignal):
+    def __init__(self, op, shellRequestSignal, guiControlSignal):
         # Tell our base class which slots to monitor
         labelSlots = LabelingGui.LabelingSlots()
-        labelSlots.labelInput = pipeline.LabelInputs
-        labelSlots.labelOutput = pipeline.LabelImages
+        labelSlots.labelInput = op.LabelInputs
+        labelSlots.labelOutput = op.LabelImages
 
-        labelSlots.labelEraserValue = pipeline.Eraser
-        labelSlots.labelDelete = pipeline.DeleteLabel
+        labelSlots.labelEraserValue = op.Eraser
+        labelSlots.labelDelete = op.DeleteLabel
 
-        labelSlots.maxLabelValue = pipeline.NumLabels
-        labelSlots.labelsAllowed = pipeline.LabelsAllowedFlags
+        labelSlots.maxLabelValue = op.NumLabels
+        labelSlots.labelsAllowed = op.LabelsAllowedFlags
 
         # We provide our own UI file (which adds an extra control for interactive mode)
         # This UI file is copied from pixelClassification pipeline
@@ -63,9 +63,9 @@ class ObjectClassificationGui(LabelingGui):
         labelingDrawerUiPath = os.path.split(__file__)[0] + '/labelingDrawer.ui'
 
         # Base class init
-        super(ObjectClassificationGui, self).__init__(labelSlots, pipeline, labelingDrawerUiPath)
+        super(ObjectClassificationGui, self).__init__(labelSlots, op, labelingDrawerUiPath)
 
-        self.pipeline = pipeline
+        self.op = op
         self.guiControlSignal = guiControlSignal
         self.shellRequestSignal = shellRequestSignal
 
@@ -76,7 +76,7 @@ class ObjectClassificationGui(LabelingGui):
         self.labelingDrawerUi.checkShowPredictions.setEnabled(True)
         self.labelingDrawerUi.checkShowPredictions.toggled.connect(self.handleShowPredictionsClicked)
 
-        self.pipeline.NumLabels.notifyDirty(bind(self.handleLabelSelectionChange))
+        self.op.NumLabels.notifyDirty(bind(self.handleLabelSelectionChange))
 
     @traceLogged(traceLogger)
     def initAppletDrawerUi(self):
@@ -88,20 +88,20 @@ class ObjectClassificationGui(LabelingGui):
         self.drawer = uic.loadUi(localDir+"/drawer.ui")
 
     @traceLogged(traceLogger)
-    def createLabelLayer(self, imageIndex, direct=False):
+    def createLabelLayer(self, direct=False):
         """Return a colortable layer that displays the label slot
         data, along with its associated label source.
 
         direct: whether this layer is drawn synchronously by volumina
 
         """
-        labelInput = self._labelingSlots.labelInput[imageIndex]
-        labelOutput = self._labelingSlots.labelOutput[imageIndex]
+        labelInput = self._labelingSlots.labelInput
+        labelOutput = self._labelingSlots.labelOutput
 
         if not labelOutput.ready():
             return (None, None)
         else:
-            traceLogger.debug("Setting up labels for image index={}".format(imageIndex))
+            traceLogger.debug("Setting up labels for image index")
             labelsrc = LazyflowSinkSource(labelOutput,
                                           labelInput)
             labellayer = ClickableColortableLayer(self.editor,
@@ -110,7 +110,7 @@ class ObjectClassificationGui(LabelingGui):
                                                   colorTable=self._colorTable16,
                                                   direct=direct)
 
-            labellayer.segmentationImageSlot = self.pipeline.SegmentationImagesOut[imageIndex]
+            labellayer.segmentationImageSlot = self.op.SegmentationImagesOut
             labellayer.name = "Labels"
             labellayer.ref_object = None
             labellayer.zeroIsTransparent  = False
@@ -125,15 +125,15 @@ class ObjectClassificationGui(LabelingGui):
             return labellayer, labelsrc
 
     @traceLogged(traceLogger)
-    def setupLayers(self, currentImageIndex):
+    def setupLayers(self):
 
         # Base class provides the label layer.
-        layers = super(ObjectClassificationGui, self).setupLayers(currentImageIndex)
+        layers = super(ObjectClassificationGui, self).setupLayers()
         #This is just for colors
         labels = self.labelListData
 
-        labelOutput = self._labelingSlots.labelOutput[currentImageIndex]
-        binarySlot = self.pipeline.BinaryImages[currentImageIndex]
+        labelOutput = self._labelingSlots.labelOutput
+        binarySlot = self.op.BinaryImages
 
         if binarySlot.ready():
             ct = colortables.create_default_8bit()
@@ -142,7 +142,7 @@ class ObjectClassificationGui(LabelingGui):
             layer.name = "Binary Image"
             layers.append(layer)
 
-        predictionSlot = self.pipeline.PredictionImages[currentImageIndex]
+        predictionSlot = self.op.PredictionImages
         if predictionSlot.ready():
             self.predictsrc = LazyflowSource(predictionSlot)
             self.predictlayer = ColortableLayer(self.predictsrc, colorTable=self._colorTable16)
@@ -160,9 +160,9 @@ class ObjectClassificationGui(LabelingGui):
     @traceLogged(traceLogger)
     def handleLabelSelectionChange(self):
         enabled = False
-        if self.pipeline.NumLabels.ready():
+        if self.op.NumLabels.ready():
             enabled = True
-            enabled &= self.pipeline.NumLabels.value >= 2
+            enabled &= self.op.NumLabels.value >= 2
 
         self.labelingDrawerUi.savePredictionsButton.setEnabled(enabled)
         self.labelingDrawerUi.checkInteractive.setEnabled(enabled)
@@ -171,7 +171,7 @@ class ObjectClassificationGui(LabelingGui):
     @traceLogged(traceLogger)
     def toggleInteractive(self, checked):
         logger.debug("toggling interactive mode to '%r'" % checked)
-        if checked and len(self.pipeline.ObjectFeatures) == 0:
+        if checked and len(self.op.ObjectFeatures) == 0:
             self.labelingDrawerUi.checkInteractive.setChecked(False)
             mexBox=QMessageBox()
             mexBox.setText("There are no features selected ")
@@ -179,7 +179,7 @@ class ObjectClassificationGui(LabelingGui):
             return
 
         self.labelingDrawerUi.savePredictionsButton.setEnabled(not checked)
-        self.pipeline.FreezePredictions.setValue(not checked)
+        self.op.FreezePredictions.setValue(not checked)
 
         # Auto-set the "show predictions" state according to what the
         # user just clicked.

@@ -16,6 +16,7 @@ from lazyflow.request import Request, Pool
 from functools import partial
 
 from ilastik.applets.pixelClassification.opPixelClassification import OpShapeReader, OpMaxValue
+from ilastik.utility.operatorSubView import OperatorSubView
 
 _MAXLABELS = 2
 
@@ -127,6 +128,18 @@ class OpObjectClassification(Operator):
     def propagateDirty(self, slot, subindex, roi):
         if slot == self.ObjectCounts:
             self._resizeLabelInputs(subindex, roi)
+
+    def addLane(self, laneIndex):
+        numLanes = len(self.BinaryImages)
+        assert numLanes == laneIndex, "Image lanes must be appended."
+        self.BinaryImages.resize(numLanes + 1)
+
+    def removeLane(self, laneIndex, finalLength):
+        self.BinaryImages.removeSlot(laneIndex, finalLength)
+
+    def getLane(self, laneIndex):
+        return OperatorSubView(self, laneIndex)
+
 
 
 class OpObjectTrain(Operator):
