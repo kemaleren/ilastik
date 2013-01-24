@@ -16,9 +16,7 @@ from lazyflow.request import Request, Pool
 from functools import partial
 
 from ilastik.applets.pixelClassification.opPixelClassification import OpShapeReader, OpMaxValue
-from ilastik.utility.operatorSubView import OperatorSubView
-from ilastik.utility.multiLaneOperator import MultiLaneOperatorABC
-
+from ilastik.utility import OperatorSubView, MultiLaneOperatorABC, OpMultiLaneWrapper 
 _MAXLABELS = 2
 
 class OpObjectClassification(Operator, MultiLaneOperatorABC):
@@ -54,11 +52,11 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
 
         # internal operators
         opkwargs = dict(parent=self, graph=self)
-        self.opInputShapeReader = OperatorWrapper(OpShapeReader, **opkwargs)
+        self.opInputShapeReader = OpMultiLaneWrapper(OpShapeReader, **opkwargs)
         self.opTrain = OpObjectTrain(graph=self.graph)
-        self.opPredict = OperatorWrapper(OpObjectPredict, **opkwargs)
-        self.opLabelsToImage = OperatorWrapper(OpToImage, **opkwargs)
-        self.opPredictionsToImage = OperatorWrapper(OpToImage, **opkwargs)
+        self.opPredict = OpMultiLaneWrapper(OpObjectPredict, **opkwargs)
+        self.opLabelsToImage = OpMultiLaneWrapper(OpToImage, **opkwargs)
+        self.opPredictionsToImage = OpMultiLaneWrapper(OpToImage, **opkwargs)
 
         # connect inputs
         self.opInputShapeReader.Input.connect(self.SegmentationImages)
