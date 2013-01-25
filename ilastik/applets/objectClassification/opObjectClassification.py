@@ -129,12 +129,16 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
             self._resizeLabelInputs(subindex, roi)
 
     def addLane(self, laneIndex):
-        numLanes = len(self.BinaryImages)
+        numLanes = len(self.SegmentationImages)
         assert numLanes == laneIndex, "Image lanes must be appended."
-        self.BinaryImages.resize(numLanes + 1)
+        for slot in self.inputSlots:
+            if slot.level > 0 and len(slot) == laneIndex:
+                slot.resize(numLanes + 1)
 
     def removeLane(self, laneIndex, finalLength):
-        self.BinaryImages.removeSlot(laneIndex, finalLength)
+        for slot in self.inputSlots:
+            if slot.level > 0 and len(slot) == finalLength + 1:
+                slot.removeSlot(laneIndex, finalLength)
 
     def getLane(self, laneIndex):
         return OperatorSubView(self, laneIndex)
