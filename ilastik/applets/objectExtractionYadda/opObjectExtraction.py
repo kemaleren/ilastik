@@ -94,7 +94,7 @@ class OpRegionFeatures(Operator):
         super(OpRegionFeatures, self).__init__(parent=parent,
                                               graph=graph)
         self._cache = {}
-        self.fixed = True
+        self.fixed = False #FIXME: when should fixed=True?
 
         def setshape(s):
             s.meta.shape = (1,)
