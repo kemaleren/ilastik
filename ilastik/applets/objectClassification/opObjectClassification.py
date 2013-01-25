@@ -51,7 +51,7 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
         super(OpObjectClassification, self).__init__(*args, **kwargs)
 
         # internal operators
-        opkwargs = dict(parent=self, graph=self)
+        opkwargs = dict(parent=self)
         self.opInputShapeReader = OpMultiLaneWrapper(OpShapeReader, **opkwargs)
         self.opTrain = OpObjectTrain(graph=self.graph)
         self.opPredict = OpMultiLaneWrapper(OpObjectPredict, **opkwargs)
@@ -131,18 +131,17 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
     def addLane(self, laneIndex):
         numLanes = len(self.SegmentationImages)
         assert numLanes == laneIndex, "Image lanes must be appended."
-        for slot in self.inputSlots:
+        for slot in self.inputs.values():
             if slot.level > 0 and len(slot) == laneIndex:
                 slot.resize(numLanes + 1)
 
     def removeLane(self, laneIndex, finalLength):
-        for slot in self.inputSlots:
+        for slot in self.inputs.values():
             if slot.level > 0 and len(slot) == finalLength + 1:
                 slot.removeSlot(laneIndex, finalLength)
 
     def getLane(self, laneIndex):
         return OperatorSubView(self, laneIndex)
-
 
 
 class OpObjectTrain(Operator):
