@@ -154,7 +154,7 @@ class OpObjectTrain(Operator):
     # setDirty with an empty slice and fails)
 
     Labels = InputSlot(level=1)
-    Features = InputSlot(stype=Opaque, level=1)
+    Features = InputSlot(stype=Opaque, level=1, rtype=List)
     FixClassifier = InputSlot(stype="bool")
 
     Classifier = OutputSlot()
@@ -179,11 +179,12 @@ class OpObjectTrain(Operator):
         for i in range(len(self.Labels)):
             # FIXME: why can't we use .value?
             labels = self.Labels[i][:].wait() # FIXME: sometimes [0]???
-            feats = self.Features[i][:].wait()
 
             for t in labels.keys():
                 lab = labels[t].squeeze()
-                counts = numpy.asarray(feats[t]['Count']).squeeze()
+                feats = self.Features([t]).wait()
+                counts = feats[t][0]['Count']
+                counts = numpy.asarray(counts.squeeze())
                 index = numpy.nonzero(lab)
                 featMatrix.append(counts[index])
                 labelsMatrix.append(lab[index])
