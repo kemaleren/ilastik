@@ -101,7 +101,7 @@ def opFeaturesFactory(name, features):
             super(cls, self).__init__(parent=parent,
                                       graph=graph)
             self._cache = {}
-            self.fixed = True
+            self.fixed = False
 
         def setupOutputs(self):
             # number of time steps
@@ -137,7 +137,7 @@ def opFeaturesFactory(name, features):
                                           stop = [t+1,] + list(lshape[1:-1]) + [c+1,])
                         a = self.Input.get(tcroi).wait()
                         a = a[0,...,0] # assumes t,x,y,z,c
-                        feats_at.append(extract(a))
+                        feats_at.append(self.extract(a))
                     self._cache[t] = feats_at
                 feats[t] = feats_at
             return feats
@@ -213,8 +213,8 @@ class OpObjectCenterImage(Operator):
         for t in range(roi.start[0], roi.stop[0]):
             feats = self.RegionCenters([t]).wait()[t]
             for ch in range(roi.start[-1], roi.stop[-1]):
-                feats = feats[ch]
-                centers = numpy.asarray(centers, dtype=numpy.uint32)
+                centers = numpy.asarray(feats[ch]['RegionCenter'],
+                                        dtype=numpy.uint32)
                 if centers.size:
                     centers = centers[1:,:]
                 for center in centers:
