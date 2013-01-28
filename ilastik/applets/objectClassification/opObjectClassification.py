@@ -28,7 +28,7 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
     ###############
     BinaryImages = InputSlot(level=1) # for visualization
     SegmentationImages = InputSlot(level=1)
-    ObjectFeatures = InputSlot(stype=Opaque, rtype=List, level=1)
+    ObjectFeatures = InputSlot(rtype=List, level=1)
     LabelsAllowedFlags = InputSlot(stype='bool', level=1)
     LabelInputs = InputSlot(stype=Opaque, optional=True, level=1)
     FreezePredictions = InputSlot(stype='bool')
@@ -154,7 +154,7 @@ class OpObjectTrain(Operator):
     # setDirty with an empty slice and fails)
 
     Labels = InputSlot(level=1)
-    Features = InputSlot(stype=Opaque, level=1, rtype=List)
+    Features = InputSlot(level=1, rtype=List)
     FixClassifier = InputSlot(stype="bool")
 
     Classifier = OutputSlot()
@@ -180,9 +180,9 @@ class OpObjectTrain(Operator):
             # FIXME: why can't we use .value?
             labels = self.Labels[i][:].wait() # FIXME: sometimes [0]???
 
-            for t in labels.keys():
+            for t in range(roi.start[0], roi.stop[0]):
                 lab = labels[t].squeeze()
-                feats = self.Features([t]).wait()
+                feats = self.Features[i]([t]).wait()
                 counts = feats[t][0]['Count']
                 counts = numpy.asarray(counts.squeeze())
                 index = numpy.nonzero(lab)
@@ -219,7 +219,7 @@ class OpObjectTrain(Operator):
 class OpObjectPredict(Operator):
     name = "OpObjectPredict"
 
-    Features = InputSlot(stype=Opaque)
+    Features = InputSlot(rtype=List)
     LabelsCount = InputSlot(stype='integer')
     Classifier = InputSlot()
 
@@ -245,9 +245,9 @@ class OpObjectPredict(Operator):
         # with setValue, so for now we compute everything.
         feats = {}
         predictions = {}
-        features = self.Features[:].wait()
-        for t, val in features.iteritems():
-            tempfeats = numpy.asarray(val['Count']).astype(numpy.float32)
+        for t in range(roi.start[0], roi.stop[0]):
+            features = self.Features([t]).wait()[t][0]
+            tempfeats = numpy.asarray(features['Count']).astype(numpy.float32)
 
             ### FIXME: is this right???
             if tempfeats.ndim == 1:
@@ -263,7 +263,7 @@ class OpObjectPredict(Operator):
         # predict the data with all the forests in parallel
         pool = Pool()
 
-        for t in features.keys():
+        for t in range(roi.start[0], roi.stop[0]):
             for i, f in enumerate(forests):
                 req = pool.request(partial(predict_forest, t, i))
 
