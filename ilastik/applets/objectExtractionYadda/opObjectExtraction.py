@@ -126,7 +126,7 @@ def opFeaturesFactory(name, features):
                 if t in self._cache:
                     feats_at = self._cache[t]
                 elif self.fixed:
-                    feats_at = dict((f, numpy.asarray([[]])) for f in featuers)
+                    feats_at = dict((f, numpy.asarray([[]])) for f in features)
                 else:
                     feats_at = []
                     lshape = self.Input.meta.shape
@@ -190,7 +190,7 @@ class OpObjectCounts(Operator):
 class OpObjectCenterImage(Operator):
     """A cross in the center of each connected component."""
     BinaryImage = InputSlot()
-    RegionCenters = InputSlot()
+    RegionCenters = InputSlot(rtype=List)
     Output = OutputSlot()
 
     def setupOutputs(self):
@@ -210,22 +210,22 @@ class OpObjectCenterImage(Operator):
 
     def execute(self, slot, subindex, roi, result):
         result[:] = 0
-        tstart, tstop = roi.start[0], roi.stop[0]
-        for t in range(tstart, tstop):
-
-            centers = self.RegionCenters[t].wait()[t]
-            centers = numpy.asarray(centers, dtype=numpy.uint32)
-            if centers.size:
-                centers = centers[1:,:]
-            for center in centers:
-                x, y, z = center[0:3]
-                for dim in (1, 2, 3):
-                    for offset in (-1, 0, 1):
-                        c = [t, x, y, z, 0]
-                        c[dim] += offset
-                        c = tuple(c)
-                        if self.__contained_in_subregion(roi, c):
-                            result[self.__make_key(roi, c)] = 255
+        for t in range(roi.start[0], roi.stop[0]):
+            feats = self.RegionCenters([t]).wait()[t]
+            for ch in range(roi.start[-1], roi.stop[-1]):
+                feats = feats[ch]
+                centers = numpy.asarray(centers, dtype=numpy.uint32)
+                if centers.size:
+                    centers = centers[1:,:]
+                for center in centers:
+                    x, y, z = center[0:3]
+                    for dim in (1, 2, 3):
+                        for offset in (-1, 0, 1):
+                            c = [t, x, y, z, ch]
+                            c[dim] += offset
+                            c = tuple(c)
+                            if self.__contained_in_subregion(roi, c):
+                                result[self.__make_key(roi, c)] = 255
         return result
 
     def propagateDirty(self, slot, subindex, roi):
