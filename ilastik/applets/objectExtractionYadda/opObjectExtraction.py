@@ -13,9 +13,7 @@ from collections import defaultdict
 class OpObjectExtraction(Operator):
     name = "Object Extraction"
 
-    #RawData = InputSlot()
     BinaryImage = InputSlot()
-    #FeatureNames = InputSlot(stype=Opaque)
 
     SegmentationImage = OutputSlot()
     ObjectCenterImage = OutputSlot()
@@ -24,32 +22,37 @@ class OpObjectExtraction(Operator):
     # indexing the time dimension.
     RegionFeatures = OutputSlot(stype=Opaque, rtype=List)
     RegionCenters = OutputSlot(stype=Opaque, rtype=List)
-    RegionCounts = OutputSlot(stype=Opaque, rtype=List)
     ObjectCounts = OutputSlot(stype=Opaque, rtype=List)
 
     def __init__(self, parent = None, graph = None):
         super(OpObjectExtraction, self).__init__(parent=parent,graph=graph)
 
+        # internal operators #
         self._opSegmentationImage = OpSegmentationImage(parent=self, graph = self.graph)
-        self._opSegmentationImage.BinaryImage.connect(self.BinaryImage)
 
-        self._opRegFeats = OpRegionFeatures(parent = self, graph = self.graph)
-        self._opRegFeats.SegmentationImage.connect(self._opSegmentationImage.SegmentationImage)
+        self._opRegionCenters = OpRegionCenters(parent=self, graph=self.graph)
+        self._opRegionFeats = OpRegionFeatures(parent=self, graph=self.graph)
 
         self._opObjectCenterImage = OpObjectCenterImage(parent=self, graph=self.graph)
-        self._opObjectCenterImage.BinaryImage.connect(self.BinaryImage)
-        self._opObjectCenterImage.RegionCenters.connect(self._opRegFeats.RegionCenters)
-
         self._opObjCounts = OpObjectCounts(parent=self, graph=self.graph)
-        self._opObjCounts.SegmentationImage.connect(self._opSegmentationImage.SegmentationImage)
 
-        # connect outputs to inner operator
-        self.SegmentationImage.connect(self._opSegmentationImage.SegmentationImage)
-        self.RegionFeatures.connect(self._opRegFeats.RegionFeatures)
-        self.RegionCenters.connect(self._opRegFeats.RegionCenters)
-        self.RegionCounts.connect(self._opRegFeats.RegionCounts)
-        self.ObjectCounts.connect(self._opObjCounts.ObjectCounts)
-        self.ObjectCenterImage.connect(self._opObjectCenterImage.ObjectCenterImage)
+        # connect internal operators
+        self._opSegmentationImage.Input.connect(self.BinaryImage)
+
+        self._opRegionFeats.Input.connect(self._opSegmentationImage.Output)
+        self._opRegionCenters.Input.connect(self._opSegmentationImage.Output)
+
+        self._opObjectCenterImage.BinaryImage.connect(self.BinaryImage)
+        self._opObjectCenterImage.RegionCenters.connect(self._opRegionCenters.Output)
+
+        self._opObjCounts.Input.connect(self._opSegmentationImage.Output)
+
+        # connect outputs to inner operators
+        self.SegmentationImage.connect(self._opSegmentationImage.Output)
+        self.ObjectCenterImage.connect(self._opObjectCenterImage.Output)
+        self.RegionFeatures.connect(self._opRegionFeats.Output)
+        self.ObjectCounts.connect(self._opObjCounts.Output)
+
 
     def setupOutputs(self):
         pass
@@ -62,15 +65,16 @@ class OpObjectExtraction(Operator):
 
 
 class OpSegmentationImage(Operator):
-    BinaryImage = InputSlot()
-    SegmentationImage = OutputSlot()
+    """Perform connected component extraction"""
+    Input = InputSlot()
+    Output = OutputSlot()
 
     def setupOutputs(self):
-        self.SegmentationImage.meta.assignFrom(self.BinaryImage.meta)
+        self.Output.meta.assignFrom(self.Input.meta)
 
     def execute(self, slot, subindex, roi, destination):
-        if slot is self.SegmentationImage:
-            a = self.BinaryImage.get(roi).wait()
+        if slot is self.Output:
+            a = self.Input.get(roi).wait()
             assert a.ndim == 5
             assert(a.shape[-1] == 1)
 
@@ -80,108 +84,82 @@ class OpSegmentationImage(Operator):
             return destination
 
     def propagateDirty(self, slot, subindex, roi):
-        if slot is self.BinaryImage:
-            self.SegmentationImage.setDirty([])
+        if slot is self.Input:
+            self.Output.setDirty([])
 
 
-class OpRegionFeatures(Operator):
-    SegmentationImage = InputSlot()
-    RegionFeatures = OutputSlot(stype=Opaque, rtype=List)
-    RegionCenters = OutputSlot(stype=Opaque, rtype=List)
-    RegionCounts = OutputSlot(stype=Opaque, rtype=List)
+def opFeaturesFactory(name, features):
+    """An operator factory producing an operator that calculates a
+    specific set of features.
 
-    def __init__(self, parent=None, graph=None):
-        super(OpRegionFeatures, self).__init__(parent=parent,
-                                              graph=graph)
-        self._cache = {}
-        self.fixed = False #FIXME: when should fixed=True?
+    """
+    class cls(Operator):
+        Input = InputSlot()
+        Output = OutputSlot(stype=Opaque, rtype=List)
 
-        def setshape(s):
-            s.meta.shape = (1,)
-            s.meta.dtype = object
-            s.meta.axistags = None
+        def __init__(self, parent=None, graph=None):
+            super(cls, self).__init__(parent=parent,
+                                      graph=graph)
+            self._cache = {}
+            self.fixed = True
 
-        setshape(self.RegionFeatures)
-        setshape(self.RegionCenters)
-        setshape(self.RegionCounts)
+        def setupOutputs(self):
+            # number of time steps
+            self.Output.meta.shape = self.Input.meta.shape[0:1]
+            self.Output.meta.dtype = object
 
+        @staticmethod
+        def extract(a):
+            labels = numpy.asarray(a, dtype=numpy.uint32)
+            data = numpy.asarray(a, dtype=numpy.float32)
+            feats = vigra.analysis.extractRegionFeatures(data,
+                                                         labels,
+                                                         features=features,
+                                                         ignoreLabel=0)
+            return feats
 
-    def setupOutputs(self):
-        pass
+        def execute(self, slot, subindex, roi, result):
+            if slot is not self.Output:
+                return
+            feats = {}
+            for t in roi:
+                if t in self._cache:
+                    feats_at = self._cache[t]
+                elif self.fixed:
+                    feats_at = dict((f, numpy.asarray([[]])) for f in featuers)
+                else:
+                    feats_at = []
+                    lshape = self.Input.meta.shape
+                    numChannels = lshape[-1]
+                    for c in range(numChannels):
+                        tcroi = SubRegion(self.Input,
+                                          start = [t,] + (len(lshape) - 2) * [0,] + [c,],
+                                          stop = [t+1,] + list(lshape[1:-1]) + [c+1,])
+                        a = self.Input.get(tcroi).wait()
+                        a = a[0,...,0] # assumes t,x,y,z,c
+                        feats_at.append(extract(a))
+                    self._cache[t] = feats_at
+                feats[t] = feats_at
+            return feats
 
-    @staticmethod
-    def _callVigra(a, featname):
-        labels = numpy.asarray(a, dtype=numpy.uint32)
-        data = numpy.asarray(a, dtype=numpy.float32)
-        feats = vigra.analysis.extractRegionFeatures(data,
-                                                     labels,
-                                                     features=[featname],
-                                                     ignoreLabel=0)
-        return feats
+        def propagateDirty(self, slot, subindex, roi):
+            if slot is self.Input:
+                self.Output.setDirty(List(self.Output,
+                                          range(roi.start[0], roi.stop[0])))
 
-    def _calcFeat(self, featname, roi):
-        feats = {}
+    cls.__name__ = name
+    return cls
 
-        # FIXME: roi is all bollixed up
-        if isinstance(roi, SubRegion):
-            # FIXME: should this be necessary???
-            ts = range(roi.start[0], roi.stop[0] + 1)
-        elif isinstance(roi, List):
-            ts = roi._l[0]
-            if isinstance(ts, int):
-                ts = [ts]
-        elif isinstance(roi, slice) and roi.start is None and roi.stop is None:
-            ts = range(self.SegmentationImage.meta.shape[0])
-        else:
-            raise Exception('unknown roi: {}'.format(roi))
-
-        for t in ts:
-            if t in self._cache:
-                feats_at = self._cache[t]
-            elif self.fixed:
-                feats_at = {featname: numpy.asarray([])}
-            else:
-                shape = self.SegmentationImage.meta.shape
-                troi = SubRegion(self.SegmentationImage,
-                                 start=[t,] + [0,] * (len(shape) - 1),
-                                 stop=[t + 1,] + list(shape[1:]))
-                a = self.SegmentationImage.get(troi).wait()
-
-                a = a[0,...,0]
-                feats_at = self._callVigra(a, featname)
-                self._cache[t] = feats_at
-            feats[t] = feats_at[featname]
-        return feats
-
-    def _combine_feats(self, roi, *args):
-        result = defaultdict(dict)
-        for featname in args:
-            feat = self._calcFeat(featname, roi)
-            for key, val in feat.iteritems():
-                result[key][featname] = val
-        return dict(result)
-
-    def execute(self, slot, subindex, roi, result):
-        if slot is self.RegionCenters:
-            result = self._calcFeat('RegionCenter', roi)
-        elif slot is self.RegionCounts:
-            result = self._calcFeat('Count', roi)
-        elif slot is self.RegionFeatures:
-            result = self._combine_feats(roi, 'RegionCenter', 'Count')
-        return result
-
-    def propagateDirty(self, slot, subindex, roi):
-        def setdirty(slot):
-            slot.setDirty(List(slot, range(roi.start[0], roi.stop[0])))
-        if slot is self.SegmentationImage:
-            setdirty(self.RegionCenters)
-            setdirty(self.RegionCounts)
-            setdirty(self.RegionFeatures)
-
+OpRegionCenters = opFeaturesFactory('OpRegionCenters', 'RegionCenter')
+OpRegionFeatures = opFeaturesFactory('OpRegionFeatures',
+                                     ['Count',
+                                      'RegionCenter',
+                                      'Coord<ArgMaxWeight>'])
 
 class OpObjectCounts(Operator):
-    SegmentationImage = InputSlot()
-    ObjectCounts = OutputSlot(stype=Opaque, rtype=List)
+    """Number of objects in each image"""
+    Input = InputSlot()
+    Output = OutputSlot(stype=Opaque, rtype=List)
 
     def __init__(self, parent=None, graph=None):
         super(OpObjectCounts, self).__init__(parent=parent,
@@ -191,31 +169,32 @@ class OpObjectCounts(Operator):
             s.meta.dtype = object
             s.meta.axistags = None
 
-        setshape(self.ObjectCounts)
+        setshape(self.Output)
 
     def setupOutputs(self):
         pass
 
     def execute(self, slot, subindex, roi, result):
-        if slot is self.ObjectCounts:
+        if slot is self.Output:
             result = {}
-            img = self.SegmentationImage.value
+            img = self.Input.value
             for t, img in enumerate(img):
                 result[t] = img.max()
         return result
 
     def propagateDirty(self, slot, subindex, roi):
-        if slot is self.SegmentationImage:
-            self.ObjectCounts.setDirty(List(slot, range(roi.start[0], roi.stop[0])))
+        if slot is self.Input:
+            self.Output.setDirty(List(slot, range(roi.start[0], roi.stop[0])))
 
 
 class OpObjectCenterImage(Operator):
+    """A cross in the center of each connected component."""
     BinaryImage = InputSlot()
     RegionCenters = InputSlot()
-    ObjectCenterImage = OutputSlot()
+    Output = OutputSlot()
 
     def setupOutputs(self):
-        self.ObjectCenterImage.meta.assignFrom(self.BinaryImage.meta)
+        self.Output.meta.assignFrom(self.BinaryImage.meta)
 
     @staticmethod
     def __contained_in_subregion(roi, coords):
@@ -233,6 +212,7 @@ class OpObjectCenterImage(Operator):
         result[:] = 0
         tstart, tstop = roi.start[0], roi.stop[0]
         for t in range(tstart, tstop):
+
             centers = self.RegionCenters[t].wait()[t]
             centers = numpy.asarray(centers, dtype=numpy.uint32)
             if centers.size:
@@ -250,4 +230,4 @@ class OpObjectCenterImage(Operator):
 
     def propagateDirty(self, slot, subindex, roi):
         if slot is self.RegionCenters:
-            self.ObjectCenterImage.setDirty([])
+            self.Output.setDirty([])

@@ -171,12 +171,12 @@ class ObjectClassificationGui(LabelingGui):
     @traceLogged(traceLogger)
     def toggleInteractive(self, checked):
         logger.debug("toggling interactive mode to '%r'" % checked)
-        if checked and len(self.op.ObjectFeatures) == 0:
-            self.labelingDrawerUi.checkInteractive.setChecked(False)
-            mexBox=QMessageBox()
-            mexBox.setText("There are no features selected ")
-            mexBox.exec_()
-            return
+        # if checked and len(self.op.ObjectFeatures) == 0:
+        #     self.labelingDrawerUi.checkInteractive.setChecked(False)
+        #     mexBox=QMessageBox()
+        #     mexBox.setText("There are no features selected ")
+        #     mexBox.exec_()
+        #     return
 
         self.labelingDrawerUi.savePredictionsButton.setEnabled(not checked)
         self.op.FreezePredictions.setValue(not checked)

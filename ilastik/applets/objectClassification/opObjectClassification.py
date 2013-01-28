@@ -176,8 +176,6 @@ class OpObjectTrain(Operator):
         featMatrix = []
         labelsMatrix = []
 
-        # FIXME: only get labeled objects and their features.
-
         for i in range(len(self.Labels)):
             # FIXME: why can't we use .value?
             labels = self.Labels[i][:].wait() # FIXME: sometimes [0]???
