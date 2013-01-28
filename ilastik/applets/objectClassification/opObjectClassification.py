@@ -302,15 +302,16 @@ class OpToImage(Operator):
         im = self.Image[:].wait()
         map_ = self.ObjectMap[:].wait()
         for t in range(roi.start[0], roi.stop[0]):
+            # FIXME: this should not be necessary
             if t not in map_:
-                # FIXME
                 print 'WARNING: OpToImage ignoring possible error'
                 continue
-            # FIXME: sometimes (1, n), sometimes (n, 1)
+
             tmap = map_[t]
 
             # FIXME: why???
             if isinstance(tmap, list):
+                print 'WARNING: for some reason tmap is a list'
                 tmap = tmap[0]
 
             tmap = tmap.squeeze()
