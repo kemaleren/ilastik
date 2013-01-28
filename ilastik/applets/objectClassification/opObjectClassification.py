@@ -301,8 +301,11 @@ class OpToImage(Operator):
         # FIXME: .value
         im = self.Image[:].wait()
         map_ = self.ObjectMap[:].wait()
-        for t in range(im.shape[0]):
-
+        for t in range(roi.start[0], roi.stop[0]):
+            if t not in map_:
+                # FIXME
+                print 'WARNING: OpToImage ignoring possible error'
+                continue
             # FIXME: sometimes (1, n), sometimes (n, 1)
             tmap = map_[t]
 
