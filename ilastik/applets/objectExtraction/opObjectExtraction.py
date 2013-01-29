@@ -14,6 +14,7 @@ class OpLabelImage(Operator):
     # image; -1 if the label image should not be computed for that
     # channel
     BackgroundLabels = InputSlot(optional=True)
+    defaultBackground = 0
 
     LabelImage = OutputSlot()
 
@@ -64,7 +65,7 @@ class OpLabelImage(Operator):
                         if self.BackgroundLabels.ready():
                             backgroundLabel = self.BackgroundLabels.value[c]
                         else:
-                            backgroundLabel = 0
+                            backgroundLabel = self.defaultBackground
                         if backgroundLabel != -1:
                             self._mem_h5['LabelImage'][t,...,c] = vigra.analysis.labelVolumeWithBackground(a, background_value = backgroundLabel)
                     self._processedTimeSteps.append(t)
