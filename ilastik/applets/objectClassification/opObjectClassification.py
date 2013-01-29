@@ -293,8 +293,8 @@ class OpToImage(Operator):
         for t in range(roi.start[0], roi.stop[0]):
             tmap = map_[t]
 
-            # FIXME: necessary because predictions are returned as
-            # list containing array.
+            # FIXME: necessary because predictions are returned
+            # enclosed in a list.
             if isinstance(tmap, list):
                 tmap = tmap[0]
 
