@@ -226,11 +226,10 @@ class OpObjectPredict(Operator):
     LabelsCount = InputSlot(stype='integer')
     Classifier = InputSlot()
 
-    Predictions = OutputSlot(stype=Opaque)
+    Predictions = OutputSlot(stype=Opaque, rtype=List)
 
     def setupOutputs(self):
-
-        self.Predictions.meta.shape=(1,)
+        self.Predictions.meta.shape = self.Features.meta.shape
         self.Predictions.meta.dtype = object
         self.Predictions.meta.axistags = None
 
@@ -303,14 +302,9 @@ class OpToImage(Operator):
     def execute(self, slot, subindex, roi, result):
         # FIXME: .value
         im = self.Image[:].wait()
-        map_ = self.ObjectMap[:].wait()
-        for t in range(roi.start[0], roi.stop[0]):
-            # FIXME: this should not be necessary
-            if t not in map_:
-                print 'WARNING: OpToImage ignoring possible error'
-                continue
 
-            tmap = map_[t]
+        for t in range(roi.start[0], roi.stop[0]):
+            tmap = self.ObjectMap([t]).wait()[t]
 
             # FIXME: why???
             if isinstance(tmap, list):
