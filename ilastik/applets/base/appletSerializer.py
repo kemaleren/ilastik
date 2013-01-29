@@ -481,7 +481,7 @@ class AppletSerializer(object):
         self.base_initialized = True
         self.topGroupName = topGroupName
         self.serialSlots = maybe(slots, [])
-        self.operator=operator
+        self.operator = operator
 
     def isDirty(self):
         """Returns true if the current state of this item (in memory)
