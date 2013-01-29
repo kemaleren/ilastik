@@ -293,9 +293,9 @@ class OpToImage(Operator):
         for t in range(roi.start[0], roi.stop[0]):
             tmap = map_[t]
 
-            # FIXME: why???
+            # FIXME: necessary because predictions are returned as
+            # list containing array.
             if isinstance(tmap, list):
-                print 'WARNING: for some reason tmap is a list'
                 tmap = tmap[0]
 
             tmap = tmap.squeeze()
@@ -305,6 +305,11 @@ class OpToImage(Operator):
                 newTmap = numpy.zeros((idx + 1,))
                 newTmap[:len(tmap)] = tmap[:]
                 tmap = newTmap
+
+            #FIXME: necesssary because predictions for index 0 is for
+            #some reason not zero
+            tmap[0] = 0
+
             im[t] = tmap[im[t]]
 
         return im[roi.toSlice()]
