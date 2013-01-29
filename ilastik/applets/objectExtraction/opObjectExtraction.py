@@ -197,10 +197,10 @@ class OpObjectCenterImage(Operator):
     def execute(self, slot, subindex, roi, result):
         result[:] = 0
         for t in range(roi.start[0], roi.stop[0]):
-            feats = self.RegionCenters([t]).wait()[t]
+            centers = self.RegionCenters([t]).wait()
             for ch in range(roi.start[-1], roi.stop[-1]):
-                centers = numpy.asarray(feats[ch]['RegionCenter'],
-                                        dtype=numpy.uint32)
+                centers = centers[t][ch]['RegionCenter']
+                centers = numpy.asarray(centers, dtype=numpy.uint32)
                 if centers.size:
                     centers = centers[1:,:]
                 for center in centers:
