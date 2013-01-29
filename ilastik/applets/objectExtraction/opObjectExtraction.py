@@ -6,70 +6,73 @@ from lazyflow.graph import Operator, InputSlot, OutputSlot
 from lazyflow.stype import Opaque
 from lazyflow.rtype import SubRegion, List
 
-class OpLabelImage( Operator ):
+class OpLabelImage(Operator):
     name = "Label Image Accessor"
     BinaryImage = InputSlot()
-    # List of background label in the order of channels of the binary image; -1 if the label image 
-    # should not be computed for that channel
-    BackgroundLabels = InputSlot( )
-    
+
+    # List of background label in the order of channels of the binary
+    # image; -1 if the label image should not be computed for that
+    # channel
+    BackgroundLabels = InputSlot()
+
     LabelImage = OutputSlot()
-    # Pull the following output slot to compute the label image.
-    # This slot is introduced in order to do a precomputation of the output image and
-    # to write the results into a compressed hdf5 virtual file instead of allocating
-    # space for all the requests.
+
+    # Pull the following output slot to compute the label image. This
+    # slot is introduced in order to do a precomputation of the output
+    # image and to write the results into a compressed hdf5 virtual
+    # file instead of allocating space for all the requests.
     LabelImageComputation = OutputSlot(stype="float")
-    
+
     def __init__(self, parent=None, graph=None):
         super(OpLabelImage, self).__init__(parent=parent,graph=graph)
-        self._mem_h5 = h5py.File(str(id(self)), driver='core', backing_store=False)        
+        self._mem_h5 = h5py.File(str(id(self)), driver='core', backing_store=False)
         self._processedTimeSteps = []
-        
-    def setupOutputs( self ):        
-        self.LabelImage.meta.assignFrom( self.BinaryImage.meta )
+
+    def setupOutputs(self):
+        self.LabelImage.meta.assignFrom(self.BinaryImage.meta)
         self.LabelImage.meta.dtype = numpy.uint32
         self.LabelImageComputation.meta.dtype = numpy.float
-        self.LabelImageComputation.meta.shape = [0]        
-        
+        self.LabelImageComputation.meta.shape = [0]
+
         m = self.LabelImage.meta
-        self._mem_h5.create_dataset( 'LabelImage', shape=m.shape, dtype=numpy.uint32, compression=1 )                
-        
-        
-    def __del__( self ):
+        self._mem_h5.create_dataset('LabelImage', shape=m.shape, dtype=numpy.uint32, compression=1)
+
+
+    def __del__(self):
         self._mem_h5.close()
-        
-    def execute( self, slot, subindex, roi, destination ):
+
+    def execute(self, slot, subindex, roi, destination):
         if slot is self.LabelImage:
             for t in range(roi.start[0],roi.stop[0]):
                 if t not in self._processedTimeSteps:
                     destination[t-roi.start[0]:t-roi.start[0]+1,...] = 0
-                else:                                        
+                else:
                     destination[t-roi.start[0]:t-roi.start[0]+1,...] = self._mem_h5['LabelImage'][roi.toSlice()]
             return destination
-        
+
         if slot is self.LabelImageComputation:
             channels = self.BinaryImage.meta.shape[-1]
             for t in range(roi.start[0],roi.stop[0]):
                 if t not in self._processedTimeSteps:
-                    for c in range(channels):                    
-                        print "Calculating LabelImage at t=" + str(t) + ", c=" + str(c) + " "                    
-                        sroi = SubRegion(self.BinaryImage, start=[t,0,0,0,c], 
+                    for c in range(channels):
+                        print "Calculating LabelImage at t=" + str(t) + ", c=" + str(c) + " "
+                        sroi = SubRegion(self.BinaryImage, start=[t,0,0,0,c],
                                          stop=[t+1,] + list(self.BinaryImage.meta.shape[1:-1]) + [c+1,])
-                        a = self.BinaryImage.get(sroi).wait()        
+                        a = self.BinaryImage.get(sroi).wait()
                         a = numpy.array(a[0,...,0],dtype=numpy.uint8)
                         backgroundLabel = self.BackgroundLabels.value[c]
                         if backgroundLabel != -1:
-                            self._mem_h5['LabelImage'][t,...,c] = vigra.analysis.labelVolumeWithBackground( a, background_value = backgroundLabel )                     
+                            self._mem_h5['LabelImage'][t,...,c] = vigra.analysis.labelVolumeWithBackground(a, background_value = backgroundLabel)
                     self._processedTimeSteps.append(t)
-  
-    def propagateDirty(self, slot, subindex, roi):        
+
+    def propagateDirty(self, slot, subindex, roi):
         if slot is self.BinaryImage:
             self.LabelImage.setDirty(roi)
-        elif slot is self.BackgroundLabels: 
+        elif slot is self.BackgroundLabels:
             self.LabelImage.setDirty(roi)
         else:
             print "Unknown dirty input slot: " + str(slot.name)
-            
+
 
 def opFeaturesFactory(name, features):
     """An operator factory producing an operator that calculates a
@@ -77,7 +80,7 @@ def opFeaturesFactory(name, features):
 
     """
     class cls(Operator):
-        LabelImage = LabelImageSlot()
+        LabelImage = InputSlot()
         Output = OutputSlot(stype=Opaque, rtype=List)
 
         def __init__(self, parent=None, graph=None):
@@ -133,116 +136,130 @@ def opFeaturesFactory(name, features):
     cls.__name__ = name
     return cls
 
-OpRegionCenters = opFeaturesFactory('OpRegionCenters', ['Count', 'RegionCenter')
+OpRegionCenters = opFeaturesFactory('OpRegionCenters', ['Count', 'RegionCenter'])
 OpRegionFeatures = opFeaturesFactory('OpRegionFeatures',
                                      ['Count',
                                       'RegionCenter',
                                       'Coord<ArgMaxWeight>'])
 
+class OpObjectCounts(Operator):
+    """Number of objects in each image"""
+    Input = InputSlot()
+    Output = OutputSlot(stype=Opaque, rtype=List)
 
-
-class OpObjectExtraction( Operator ):
-    name = "Object Extraction"
-
-    RawImage = InputSlot()# optional=True )
-    BinaryImage = InputSlot()
-    BackgroundLabels = InputSlot()
-
-    LabelImage = OutputSlot()
-    ObjectCenterImage = OutputSlot()
-    RegionCenters = OutputSlot( stype=Opaque, rtype=List )
-    RegionFeatures = OutputSlot( stype=Opaque, rtype=List )
-
-    def __init__( self, parent = None, graph = None ):
-        super(OpObjectExtraction, self).__init__(parent=parent,graph=graph)
-
-        self._reg_cents = {}
-
-        self._opLabelImage = OpLabelImage( parent=self, graph = graph )
-        self._opLabelImage.BinaryImage.connect( self.BinaryImage )
-        self._opLabelImage.BackgroundLabels.connect( self.BackgroundLabels)
-        self.LabelImage.connect(self._opLabelImage.LabelImage)
-        
-        self._opRegCent = OpRegionCenters( parent=self, graph = graph )
-        self._opRegCent.LabelImage.connect( self.LabelImage )
-
-        self._opRegFeats = OpRegionFeatures( parent=self, graph = graph )
-        self._opRegFeats.LabelImage.connect( self.LabelImage )
+    def __init__(self, parent=None, graph=None):
+        super(OpObjectCounts, self).__init__(parent=parent,
+                                              graph=graph)
 
     def setupOutputs(self):
-        m = self.BinaryImage.meta
-        
-        self._reg_cents = dict.fromkeys(xrange(m.shape[0]), numpy.asarray([], dtype=numpy.uint16))        
-        
-        self.ObjectCenterImage.meta.assignFrom(self.BinaryImage.meta)
-        self.LabelImage.meta.assignFrom(self.BinaryImage.meta)
-        self.RegionFeatures.meta.shape = self.BinaryImage.meta.shape[0:1] # number of timesteps
-        self.RegionFeatures.meta.dtype = object
-        self.RegionCenters.meta.shape = self.BinaryImage.meta.shape[0:1]  # number of timesteps
-        self.RegionCenters.meta.dtype = object
-                
-        
-    def execute(self, slot, subindex, roi, result):        
-        if slot is self.ObjectCenterImage:
-            return self._execute_ObjectCenterImage( roi, result )
-        if slot is self.RegionCenters:
-            res = self._opRegCent.Output.get( roi ).wait()
-            return res
-        if slot is self.RegionFeatures:
-            res = self._opRegFeats.Output.get( roi ).wait()
-            return res
+        self.Output.meta.shape = (1,)
+        self.Output.meta.dtype = object
+        self.Output.meta.axistags = None
 
-    def __contained_in_subregion( self, roi, coords ):
+    def execute(self, slot, subindex, roi, result):
+        if slot is self.Output:
+            result = {}
+            img = self.Input.value
+            for t, img in enumerate(img):
+                result[t] = img.max()
+        return result
+
+    def propagateDirty(self, slot, subindex, roi):
+        if slot is self.Input:
+            self.Output.setDirty(List(slot, range(roi.start[0], roi.stop[0])))
+
+
+class OpObjectCenterImage(Operator):
+    """A cross in the center of each connected component."""
+    BinaryImage = InputSlot()
+    RegionCenters = InputSlot(rtype=List)
+    Output = OutputSlot()
+
+    def setupOutputs(self):
+        self.Output.meta.assignFrom(self.BinaryImage.meta)
+
+    @staticmethod
+    def __contained_in_subregion(roi, coords):
         b = True
         for i in range(len(coords)):
             b = b and (roi.start[i] <= coords[i] and coords[i] < roi.stop[i])
         return b
 
-    def __make_key( self, roi, coords ):
-        return (coords[0] - roi.start[0],
-                coords[1] - roi.start[1],
-                coords[2] - roi.start[2],
-                coords[3] - roi.start[3],
-                coords[4] - roi.start[4],)
-                
-    
-    def _execute_ObjectCenterImage( self, roi, result ):
+    @staticmethod
+    def __make_key(roi, coords):
+        key = [coords[i] - roi.start[i] for i in range(len(roi.start))]
+        return tuple(key)
+
+    def execute(self, slot, subindex, roi, result):
         result[:] = 0
         for t in range(roi.start[0], roi.stop[0]):
+            feats = self.RegionCenters([t]).wait()[t]
             for ch in range(roi.start[-1], roi.stop[-1]):
-                centers = self.RegionFeatures( [t] ).wait()[t][ch]['RegionCenter']
-                centers = numpy.asarray( centers, dtype=numpy.uint32)
+                centers = numpy.asarray(feats[ch]['RegionCenter'],
+                                        dtype=numpy.uint32)
                 if centers.size:
                     centers = centers[1:,:]
-                for row in range(0,centers.shape[0]):
-                    x = centers[row,0]
-                    y = centers[row,1]
-                    z = centers[row,2]
-                
-                    # mark center
-                    c =  (t,x,y,z,ch)
-                    if self.__contained_in_subregion( roi, c ): 
-                        result[self.__make_key(roi,c)] = 255
-    
-                    # make the point into a cross
-                    c =  (t,x-1,y,z,0)
-                    if self.__contained_in_subregion( roi, c ):
-                        result[self.__make_key(roi, c)] = 255
-                    c =  (t,x,y-1,z,0)
-                    if self.__contained_in_subregion( roi, c ):
-                        result[self.__make_key(roi, c)] = 255
-                    c =  (t,x,y,z-1,0)
-                    if self.__contained_in_subregion( roi, c ):
-                        result[self.__make_key(roi, c)] = 255
-    
-                    c =  (t,x+1,y,z,0)
-                    if self.__contained_in_subregion( roi, c ):
-                        result[self.__make_key(roi, c)] = 255
-                    c =  (t,x,y+1,z,0)
-                    if self.__contained_in_subregion( roi, c ):
-                        result[self.__make_key(roi, c)] = 255
-                    c =  (t,x,y,z+1,0)
-                    if self.__contained_in_subregion( roi, c ):
-                        result[self.__make_key(roi, c)] = 255
-        
+                for center in centers:
+                    x, y, z = center[0:3]
+                    for dim in (1, 2, 3):
+                        for offset in (-1, 0, 1):
+                            c = [t, x, y, z, ch]
+                            c[dim] += offset
+                            c = tuple(c)
+                            if self.__contained_in_subregion(roi, c):
+                                result[self.__make_key(roi, c)] = 255
         return result
+
+    def propagateDirty(self, slot, subindex, roi):
+        if slot is self.RegionCenters:
+            self.Output.setDirty([])
+
+
+class OpObjectExtraction(Operator):
+    name = "Object Extraction"
+
+    RawImage = InputSlot()
+    BinaryImage = InputSlot()
+    BackgroundLabels = InputSlot()
+
+    LabelImage = OutputSlot()
+    ObjectCenterImage = OutputSlot()
+    RegionCenters = OutputSlot(stype=Opaque, rtype=List)
+    RegionFeatures = OutputSlot(stype=Opaque, rtype=List)
+    ObjectCounts = OutputSlot(stype=Opaque, rtype=List)
+
+    def __init__(self, parent = None, graph = None):
+        super(OpObjectExtraction, self).__init__(parent=parent,graph=graph)
+
+        # internal operators
+        self._opLabelImage = OpLabelImage(parent=self, graph = graph)
+        self._opRegCent = OpRegionCenters(parent=self, graph = graph)
+        self._opRegFeats = OpRegionFeatures(parent=self, graph = graph)
+        self._opObjectCenterImage = OpObjectCenterImage(parent=self, graph=self.graph)
+        self._opObjCounts = OpObjectCounts(parent=self, graph=self.graph)
+
+        # connect internal operators
+        self._opLabelImage.BinaryImage.connect(self.BinaryImage)
+        self._opLabelImage.BackgroundLabels.connect(self.BackgroundLabels)
+
+        self._opRegCent.LabelImage.connect(self._opLabelImage.LabelImage)
+        self._opRegFeats.LabelImage.connect(self._opLabelImage.LabelImage)
+
+        self._opObjectCenterImage.BinaryImage.connect(self.BinaryImage)
+        self._opObjectCenterImage.RegionCenters.connect(self._opRegCent.Output)
+
+        # connect outputs
+        self.LabelImage.connect(self._opLabelImage.LabelImage)
+        self.ObjectCenterImage.connect(self._opObjectCenterImage.Output)
+        self.RegionCenters.connect(self._opRegCent.Output)
+        self.RegionFeatures.connect(self._opRegFeats.Output)
+        self.ObjectCounts.connect(self._opObjCounts.Output)
+
+    def setupOutputs(self):
+        pass
+
+    def execute(self, slot, subindex, roi, result):
+        pass
+
+    def propagateDirty(self, inputSlot, subindex, roi):
+        pass
