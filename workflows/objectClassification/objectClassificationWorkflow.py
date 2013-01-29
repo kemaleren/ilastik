@@ -4,7 +4,7 @@ from ilastik.workflow import Workflow
 
 from ilastik.applets.projectMetadata import ProjectMetadataApplet
 from ilastik.applets.dataSelection import DataSelectionApplet
-from ilastik.applets.objectExtractionYadda import ObjectExtractionApplet
+from ilastik.applets.objectExtraction import ObjectExtractionApplet
 
 from ilastik.applets.objectClassification import ObjectClassificationApplet
 
@@ -60,7 +60,7 @@ class ObjectClassificationWorkflow(Workflow):
         opObjClassification.LabelsAllowedFlags.connect(opData.AllowLabels)
 
         # connect extraction -> classification
-        opObjClassification.SegmentationImages.connect(opObjExtraction.SegmentationImage)
+        opObjClassification.SegmentationImages.connect(opObjExtraction.LabelImage)
         opObjClassification.ObjectFeatures.connect(opObjExtraction.RegionFeatures)
         opObjClassification.ObjectCounts.connect(opObjExtraction.ObjectCounts)
 
