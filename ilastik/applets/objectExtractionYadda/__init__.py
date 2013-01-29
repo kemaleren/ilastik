@@ -1,1 +1,0 @@
-from objectExtractionApplet import ObjectExtractionApplet
