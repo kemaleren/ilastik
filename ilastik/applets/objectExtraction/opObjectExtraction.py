@@ -149,32 +149,6 @@ OpRegionFeatures = opFeaturesFactory('OpRegionFeatures',
                                       'RegionCenter',
                                       'Coord<ArgMaxWeight>'])
 
-class OpObjectCounts(Operator):
-    """Number of objects in each image"""
-    Input = InputSlot()
-    Output = OutputSlot(stype=Opaque, rtype=List)
-
-    def __init__(self, parent=None, graph=None):
-        super(OpObjectCounts, self).__init__(parent=parent,
-                                              graph=graph)
-
-    def setupOutputs(self):
-        self.Output.meta.shape = (1,)
-        self.Output.meta.dtype = object
-        self.Output.meta.axistags = None
-
-    def execute(self, slot, subindex, roi, result):
-        if slot is self.Output:
-            result = {}
-            img = self.Input.value
-            for t, img in enumerate(img):
-                result[t] = img.max()
-        return result
-
-    def propagateDirty(self, slot, subindex, roi):
-        if slot is self.Input:
-            self.Output.setDirty(List(slot, range(roi.start[0], roi.stop[0])))
-
 
 class OpObjectCenterImage(Operator):
     """A cross in the center of each connected component."""
@@ -233,7 +207,6 @@ class OpObjectExtraction(Operator):
     ObjectCenterImage = OutputSlot()
     RegionCenters = OutputSlot(stype=Opaque, rtype=List)
     RegionFeatures = OutputSlot(stype=Opaque, rtype=List)
-    ObjectCounts = OutputSlot(stype=Opaque, rtype=List)
 
     def __init__(self, parent=None, graph=None):
 
@@ -245,7 +218,6 @@ class OpObjectExtraction(Operator):
         self._opRegCent = OpRegionCenters(parent=self, graph = graph)
         self._opRegFeats = OpRegionFeatures(parent=self, graph = graph)
         self._opObjectCenterImage = OpObjectCenterImage(parent=self, graph=self.graph)
-        self._opObjCounts = OpObjectCounts(parent=self, graph=self.graph)
 
         # connect internal operators
         self._opLabelImage.BinaryImage.connect(self.BinaryImage)
@@ -262,7 +234,6 @@ class OpObjectExtraction(Operator):
         self.ObjectCenterImage.connect(self._opObjectCenterImage.Output)
         self.RegionCenters.connect(self._opRegCent.Output)
         self.RegionFeatures.connect(self._opRegFeats.Output)
-        self.ObjectCounts.connect(self._opObjCounts.Output)
 
     def setupOutputs(self):
         pass

@@ -227,8 +227,18 @@ class ObjectClassificationGui(LabelingGui):
         obj = arr.flat[0]
         if obj == 0: # background
             return
+        t = pos5D[0]
+
         labelslot = layer._datasources[0]._inputSlot
-        labels = labelslot.value
-        labels[pos5D[0]][obj] = label
-        labelslot.setValue(labels)
+        labelsdict = labelslot.value
+        labels = labelsdict[t]
+
+        nobjects = len(labels)
+        if obj >= nobjects:
+            newLabels = numpy.zeros((obj + 1),)
+            newLabels[:nobjects] = labels[:]
+            labels = newLabels
+        labels[obj] = label
+        labelsdict[t] = labels
+        labelslot.setValue(labelsdict)
         labelslot.setDirty(slice(None))

@@ -32,7 +32,6 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
     LabelsAllowedFlags = InputSlot(stype='bool', level=1)
     LabelInputs = InputSlot(stype=Opaque, optional=True, level=1)
     FreezePredictions = InputSlot(stype='bool')
-    ObjectCounts = InputSlot(stype=Opaque, rtype=List, level=1)
 
     ################
     # Output slots #
@@ -101,35 +100,22 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
         self.LabelInputs[imageIndex].meta.shape = (1,)
         self.LabelInputs[imageIndex].meta.dtype = object
         self.LabelInputs[imageIndex].meta.axistags = None
-        self._resizeLabelInputs(imageIndex)
+        self._resetLabelInputs(imageIndex)
 
-    def _resizeLabelInputs(self, imageIndex, roi=None):
-        #if roi is None:
-        #    roi = [slice(None, None, None)]
-        if not self.ObjectCounts.ready():
-            print 'warning: skipping label resize'
-            return
+    def _resetLabelInputs(self, imageIndex, roi=None):
         labels = dict()
-        counts = self.ObjectCounts[imageIndex]([]).wait() # WHY cant we use .value???
-        for t in counts.keys():
-            # add one for background,))
-            labels[t] = numpy.zeros((counts[t] + 1),)
-
-        # FIXME: does this do the right thing?
+        for t in range(self.SegmentationImages[imageIndex].meta.shape[0]):
+            labels[t] = numpy.zeros((2,))
         self.LabelInputs[imageIndex].setValue(labels)
-
 
     def setupOutputs(self):
         pass
 
     def setInSlot(self, slot, subindex, roi, value):
-        # Nothing to do here: All inputs that support __setitem__ are
-        #   directly connected to internal operators.
         pass
 
     def propagateDirty(self, slot, subindex, roi):
-        if slot == self.ObjectCounts:
-            self._resizeLabelInputs(subindex, roi)
+        pass
 
     def addLane(self, laneIndex):
         numLanes = len(self.SegmentationImages)
@@ -302,9 +288,10 @@ class OpToImage(Operator):
     def execute(self, slot, subindex, roi, result):
         # FIXME: .value
         im = self.Image[:].wait()
+        map_ = self.ObjectMap([]).wait()
 
         for t in range(roi.start[0], roi.stop[0]):
-            tmap = self.ObjectMap([t]).wait()[t]
+            tmap = map_[t]
 
             # FIXME: why???
             if isinstance(tmap, list):
@@ -312,9 +299,14 @@ class OpToImage(Operator):
                 tmap = tmap[0]
 
             tmap = tmap.squeeze()
-            if len(tmap) != 0:
-                tmap[0] = 0
-                im[t] = tmap[im[t]]
+
+            idx = im.max()
+            if len(tmap) <= idx:
+                newTmap = numpy.zeros((idx + 1,))
+                newTmap[:len(tmap)] = tmap[:]
+                tmap = newTmap
+            im[t] = tmap[im[t]]
+
         return im[roi.toSlice()]
 
     def propagateDirty(self, slot, subindex, roi):

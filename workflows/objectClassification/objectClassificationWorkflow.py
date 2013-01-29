@@ -63,5 +63,3 @@ class ObjectClassificationWorkflow(Workflow):
         # connect extraction -> classification
         opObjClassification.SegmentationImages.connect(opObjExtraction.LabelImage)
         opObjClassification.ObjectFeatures.connect(opObjExtraction.RegionFeatures)
-        opObjClassification.ObjectCounts.connect(opObjExtraction.ObjectCounts)
-
