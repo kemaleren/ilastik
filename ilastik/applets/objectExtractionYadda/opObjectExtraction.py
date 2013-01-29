@@ -28,7 +28,7 @@ class OpObjectExtraction(Operator):
         super(OpObjectExtraction, self).__init__(parent=parent,graph=graph)
 
         # internal operators #
-        self._opSegmentationImage = OpSegmentationImage(parent=self, graph = self.graph)
+        self._opSegmentationImage = OpLabelImage(parent=self, graph = self.graph)
 
         self._opRegionCenters = OpRegionCenters(parent=self, graph=self.graph)
         self._opRegionFeats = OpRegionFeatures(parent=self, graph=self.graph)
@@ -64,7 +64,7 @@ class OpObjectExtraction(Operator):
         pass
 
 
-class OpSegmentationImage(Operator):
+class OpLabelImage(Operator):
     """Perform connected component extraction"""
     Input = InputSlot()
     Output = OutputSlot()

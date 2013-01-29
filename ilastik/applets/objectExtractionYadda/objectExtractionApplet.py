@@ -5,8 +5,10 @@ from objectExtractionGui import ObjectExtractionGui
 from objectExtractionSerializer import ObjectExtractionSerializer
 
 class ObjectExtractionApplet(StandardApplet):
-    def __init__(self, name="Object Extraction", workflow=None,
+    def __init__(self, name="Object Extraction",
+                 workflow=None,
                  projectFileGroupName="ObjectExtraction"):
+
         super(ObjectExtractionApplet, self).__init__(name=name,
                                                      workflow=workflow)
         self._serializableItems = [
