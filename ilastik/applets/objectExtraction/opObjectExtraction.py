@@ -71,111 +71,74 @@ class OpLabelImage( Operator ):
             print "Unknown dirty input slot: " + str(slot.name)
             
 
+def opFeaturesFactory(name, features):
+    """An operator factory producing an operator that calculates a
+    specific set of features.
 
-class OpRegionFeatures( Operator ):
-    name = "Region Features"
+    """
+    class cls(Operator):
+        LabelImage = LabelImageSlot()
+        Output = OutputSlot(stype=Opaque, rtype=List)
 
-    LabelImage = InputSlot()
-    Output = OutputSlot( stype=Opaque, rtype=List )
+        def __init__(self, parent=None, graph=None):
+            super(cls, self).__init__(parent=parent,
+                                      graph=graph)
+            self._cache = {}
+            self.fixed = False
 
-    def __init__( self, parent=None, graph=None ):
-        super(OpRegionFeatures, self).__init__(parent=parent,
-                                              graph=graph)
-        self._cache = {}
-        self.fixed = True
+        def setupOutputs(self):
+            # number of time steps
+            self.Output.meta.shape = self.LabelImage.meta.shape[0:1]
+            self.Output.meta.dtype = object
 
-    def setupOutputs( self ):
-        self.Output.meta.shape = self.LabelImage.meta.shape[0:1] # number of time steps
-        self.Output.meta.dtype = object
-    
-    def execute( self, slot, subindex, roi, result ):
-        if slot is self.Output:
-            def extract( a ):
-                labels = numpy.asarray(a, dtype=numpy.uint32)
-                data = numpy.asarray(a, dtype=numpy.float32)
-                feats = vigra.analysis.extractRegionFeatures(data, labels, features=['RegionCenter', 'Count', 'Coord<ArgMaxWeight>'], ignoreLabel=0)
-                return feats
-                centers = numpy.asarray(feats['RegionCenter'], dtype=numpy.uint16)
-                centers = centers[1:,:]
-                return centers
-                
-            numChannels = self.LabelImage.meta.shape[-1]
-            feats = {}            
+        @staticmethod
+        def extract(a):
+            labels = numpy.asarray(a, dtype=numpy.uint32)
+            data = numpy.asarray(a, dtype=numpy.float32)
+            feats = vigra.analysis.extractRegionFeatures(data,
+                                                         labels,
+                                                         features=features,
+                                                         ignoreLabel=0)
+            return feats
+
+        def execute(self, slot, subindex, roi, result):
+            if slot is not self.Output:
+                return
+            feats = {}
             for t in roi:
-                if t in self._cache:                    
+                if t in self._cache:
                     feats_at = self._cache[t]
                 elif self.fixed:
-                    feats_at = { 'RegionCenter': numpy.asarray([[]]), 'Count': numpy.asarray([[]]), 'Coord<ArgMaxWeight>': numpy.asarray([[]]) }                    
-                else:    
+                    feats_at = dict((f, numpy.asarray([[]])) for f in features)
+                else:
                     feats_at = []
+                    lshape = self.LabelImage.meta.shape
+                    numChannels = lshape[-1]
                     for c in range(numChannels):
-                        print "RegionFeatures at t=" + str(t) + ", c=" + str(c) + " "                                    
-                        tcroi = SubRegion( self.LabelImage, start = [t,] + (len(self.LabelImage.meta.shape) - 2) * [0,] 
-                                           + [c,], stop = [t+1,] + list(self.LabelImage.meta.shape[1:-1]) + [c+1,])
+                        tcroi = SubRegion(self.LabelImage,
+                                          start = [t,] + (len(lshape) - 2) * [0,] + [c,],
+                                          stop = [t+1,] + list(lshape[1:-1]) + [c+1,])
                         a = self.LabelImage.get(tcroi).wait()
                         a = a[0,...,0] # assumes t,x,y,z,c
-                        feats_at.append(extract(a))
+                        feats_at.append(self.extract(a))
                     self._cache[t] = feats_at
                 feats[t] = feats_at
-
             return feats
-        
-    def propagateDirty(self, slot, subindex, roi):
-        if slot is self.LabelImage:
-            self.Output.setDirty(List(self.Output, range(roi.start[0], roi.stop[0]))) 
 
+        def propagateDirty(self, slot, subindex, roi):
+            if slot is self.LabelImage:
+                self.Output.setDirty(List(self.Output,
+                                          range(roi.start[0], roi.stop[0])))
 
-class OpRegionCenters( Operator ):
-    name = "Region Centers"
-    
-    LabelImage = InputSlot()
-    Output = OutputSlot( stype=Opaque, rtype=List )
+    cls.__name__ = name
+    return cls
 
-    
-    def __init__( self, parent=None, graph=None ):
-        super(OpRegionCenters, self).__init__(parent=parent,
-                                              graph=graph)
-        self._cache = {}
-        self.fixed = True
+OpRegionCenters = opFeaturesFactory('OpRegionCenters', ['Count', 'RegionCenter')
+OpRegionFeatures = opFeaturesFactory('OpRegionFeatures',
+                                     ['Count',
+                                      'RegionCenter',
+                                      'Coord<ArgMaxWeight>'])
 
-    def setupOutputs( self ):        
-        self.Output.meta.shape = self.LabelImage.meta.shape[0:1]
-        self.Output.meta.dtype = object
-    
-    def execute( self, slot, subindex, roi, result ):
-        if slot is self.Output:
-            def extract( a ):
-                labels = numpy.asarray(a, dtype=numpy.uint32)
-                data = numpy.asarray(a, dtype=numpy.float32)
-                feats = vigra.analysis.extractRegionFeatures(data, labels, features=['RegionCenter', 'Count'], ignoreLabel=0)
-                centers = numpy.asarray(feats['RegionCenter'], dtype=numpy.uint16)
-                centers = centers[1:,:]
-                return centers
-            
-            numChannels = self.LabelImage.meta.shape[-1]
-            centers = {}
-            for t in roi:                
-                if t in self._cache:
-                    centers_at = self._cache[t]
-                elif self.fixed:
-                    centers_at = numpy.asarray([], dtype=numpy.uint16)
-                else:
-                    centers_at = []
-                    for c in range(numChannels):
-                        print "RegionCenters at t=" + str(t) + ", c=" + str(c) + " "                                    
-                        tcroi = SubRegion( self.LabelImage, start = [t,] + (len(self.LabelImage.meta.shape) - 2) * [0,] 
-                                           + [c,], stop = [t+1,] + list(self.LabelImage.meta.shape[1:-1] + [c+1,]))
-                        a = self.LabelImage.get(tcroi).wait()
-                        a = a[0,...,0] # assumes t,x,y,z,c
-                        centers_at.append(extract(a))
-                    self._cache[t] = centers_at
-                centers[t] = centers_at                    
-
-            return centers
-        
-    def propagateDirty(self, slot, subindex, roi):
-        if slot is self.LabelImage:
-            self.Output.setDirty(List(self.Output, range(roi.start[0], roi.stop[0]))) 
 
 
 class OpObjectExtraction( Operator ):
