@@ -106,6 +106,9 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
     def _resizeLabelInputs(self, imageIndex, roi=None):
         #if roi is None:
         #    roi = [slice(None, None, None)]
+        if not self.ObjectCounts.ready():
+            print 'warning: skipping label resize'
+            return
         labels = dict()
         counts = self.ObjectCounts[imageIndex]([]).wait() # WHY cant we use .value???
         for t in counts.keys():

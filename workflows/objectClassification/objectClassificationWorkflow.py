@@ -53,6 +53,7 @@ class ObjectClassificationWorkflow(Workflow):
         opObjClassification = self.objectClassificationApplet.topLevelOperator.getLane(laneIndex)
 
         # connect data -> extraction
+        opObjExtraction.RawImage.connect(opData.Image)
         opObjExtraction.BinaryImage.connect(opData.Image)
 
         # connect data -> classification

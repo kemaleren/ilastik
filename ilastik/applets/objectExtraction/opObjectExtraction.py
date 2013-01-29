@@ -13,7 +13,7 @@ class OpLabelImage(Operator):
     # List of background label in the order of channels of the binary
     # image; -1 if the label image should not be computed for that
     # channel
-    BackgroundLabels = InputSlot()
+    BackgroundLabels = InputSlot(optional=True)
 
     LabelImage = OutputSlot()
 
@@ -29,6 +29,7 @@ class OpLabelImage(Operator):
         self._processedTimeSteps = []
 
     def setupOutputs(self):
+        import util; util.set_trace
         self.LabelImage.meta.assignFrom(self.BinaryImage.meta)
         self.LabelImage.meta.dtype = numpy.uint32
         self.LabelImageComputation.meta.dtype = numpy.float
@@ -60,7 +61,10 @@ class OpLabelImage(Operator):
                                          stop=[t+1,] + list(self.BinaryImage.meta.shape[1:-1]) + [c+1,])
                         a = self.BinaryImage.get(sroi).wait()
                         a = numpy.array(a[0,...,0],dtype=numpy.uint8)
-                        backgroundLabel = self.BackgroundLabels.value[c]
+                        if self.BackgroundLabels.ready():
+                            backgroundLabel = self.BackgroundLabels.value[c]
+                        else:
+                            backgroundLabel = 0
                         if backgroundLabel != -1:
                             self._mem_h5['LabelImage'][t,...,c] = vigra.analysis.labelVolumeWithBackground(a, background_value = backgroundLabel)
                     self._processedTimeSteps.append(t)
@@ -228,8 +232,10 @@ class OpObjectExtraction(Operator):
     RegionFeatures = OutputSlot(stype=Opaque, rtype=List)
     ObjectCounts = OutputSlot(stype=Opaque, rtype=List)
 
-    def __init__(self, parent = None, graph = None):
-        super(OpObjectExtraction, self).__init__(parent=parent,graph=graph)
+    def __init__(self, parent=None, graph=None):
+
+        super(OpObjectExtraction, self).__init__(parent=parent,
+                                                 graph=graph)
 
         # internal operators
         self._opLabelImage = OpLabelImage(parent=self, graph = graph)
