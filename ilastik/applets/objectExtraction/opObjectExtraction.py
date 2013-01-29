@@ -46,10 +46,12 @@ class OpLabelImage(Operator):
     def execute(self, slot, subindex, roi, destination):
         if slot is self.LabelImage:
             for t in range(roi.start[0],roi.stop[0]):
+                slc = roi.toSlice()
+                slc = (slice(t, t + 1),) + slc[1:]
                 if t not in self._processedTimeSteps:
                     destination[t-roi.start[0]:t-roi.start[0]+1,...] = 0
                 else:
-                    destination[t-roi.start[0]:t-roi.start[0]+1,...] = self._mem_h5['LabelImage'][roi.toSlice()]
+                    destination[t-roi.start[0]:t-roi.start[0]+1,...] = self._mem_h5['LabelImage'][slc]
             return destination
 
         if slot is self.LabelImageComputation:
