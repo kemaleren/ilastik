@@ -225,8 +225,7 @@ class OpObjectPredict(Operator):
         forests=self.inputs["Classifier"][:].wait()
 
         if forests is None:
-            # Training operator may return 'None' if there was no data
-            # to train with
+            # this happens if there was no data to train with
             return numpy.zeros(numpy.subtract(roi.stop, roi.start),
                                dtype=numpy.float32)[...]
 
@@ -304,8 +303,8 @@ class OpToImage(Operator):
                 newTmap[:len(tmap)] = tmap[:]
                 tmap = newTmap
 
-            #FIXME: necesssary because predictions for index 0 is for
-            #some reason not zero
+            # FIXME: necesssary because predictions for index 0 is for
+            # some reason not zero
             tmap[0] = 0
 
             img[t] = tmap[img[t]]
@@ -313,4 +312,8 @@ class OpToImage(Operator):
         return img
 
     def propagateDirty(self, slot, subindex, roi):
-        self.Output.setDirty(slice(None, None, None))
+        if slot is self.Image:
+            self.Output.setDirty(roi)
+        elif slot is self.ObjectMap:
+            # FIXME: what is correct way to set everything dirty?
+            self.Output.setDirty(slice(None, None, None))
