@@ -29,7 +29,8 @@ class ObjectClassificationWorkflow(Workflow):
         self.dataSelectionApplet = DataSelectionApplet(self,
                                                        "Input: Segmentation",
                                                        "Input Segmentation",
-                                                       batchDataGui=False)
+                                                       batchDataGui=False,
+                                                       force5d=True)
         self.objectExtractionApplet = ObjectExtractionApplet(workflow=self)
         self.objectClassificationApplet = ObjectClassificationApplet(workflow=self)
 
