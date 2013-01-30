@@ -285,7 +285,7 @@ class OpToImage(Operator):
 
     def execute(self, slot, subindex, roi, result):
         slc = roi.toSlice()
-        im = self.Image[slc].wait()
+        img = self.Image[slc].wait()
         map_ = self.ObjectMap([]).wait() # TODO: use roi
 
         for t in range(roi.start[0], roi.stop[0]):
@@ -298,7 +298,7 @@ class OpToImage(Operator):
 
             tmap = tmap.squeeze()
 
-            idx = im.max()
+            idx = img.max()
             if len(tmap) <= idx:
                 newTmap = numpy.zeros((idx + 1,))
                 newTmap[:len(tmap)] = tmap[:]
@@ -308,9 +308,9 @@ class OpToImage(Operator):
             #some reason not zero
             tmap[0] = 0
 
-            im[t] = tmap[im[t]]
+            img[t] = tmap[img[t]]
 
-        return im
+        return img
 
     def propagateDirty(self, slot, subindex, roi):
         self.Output.setDirty(slice(None, None, None))
