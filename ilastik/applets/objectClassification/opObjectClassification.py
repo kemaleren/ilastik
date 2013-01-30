@@ -157,7 +157,7 @@ class OpObjectTrain(Operator):
         if self.inputs["FixClassifier"].value == False:
             self.outputs["Classifier"].meta.dtype = object
             self.outputs["Classifier"].meta.shape = (self.ForestCount.value,)
-            self.outputs["Classifier"].meta.axistags  = None
+            self.outputs["Classifier"].meta.axistags = None
 
     def execute(self, slot, subindex, roi, result):
         featMatrix = []
