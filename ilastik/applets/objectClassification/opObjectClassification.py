@@ -42,7 +42,7 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
     PredictionImages = OutputSlot(level=1)
     SegmentationImagesOut = OutputSlot(level=1)
 
-    # FIXME: not actually used
+    # TODO: not actually used
     Eraser = OutputSlot()
     DeleteLabel = OutputSlot()
 
@@ -236,12 +236,8 @@ class OpObjectPredict(Operator):
         for t in range(roi.start[0], roi.stop[0]):
             features = self.Features([t]).wait()[t][0]
             tempfeats = numpy.asarray(features['Count']).astype(numpy.float32)
-
-            ### FIXME: is this right???
             if tempfeats.ndim == 1:
                 tempfeats.resize(tempfeats.shape + (1,))
-            ###
-
             feats[t] = tempfeats
             predictions[t]  = [0] * len(forests)
 

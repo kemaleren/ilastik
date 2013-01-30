@@ -227,7 +227,7 @@ class ObjectClassificationGui(LabelingGui):
 
         arr = layer.segmentationImageSlot[slicing].wait()
         obj = arr.flat[0]
-        if obj == 0: # background
+        if obj == 0: # background; FIXME: do not hardcode
             return
         t = pos5D[0]
 
