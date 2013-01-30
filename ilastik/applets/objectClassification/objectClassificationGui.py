@@ -116,8 +116,8 @@ class ObjectClassificationGui(LabelingGui):
             labellayer.zeroIsTransparent  = False
             labellayer.colortableIsRandom = True
 
-            # FIXME: labeling actions should not be tied to this
-            # particular layer.
+            # FIXME: labeling only possible after some strange
+            # combination of selecting labels and layers
             clickInt = ClickInterpreter2(self.editor, labellayer,
                                          self.onClick)
             self.editor.brushingInterpreter = clickInt
