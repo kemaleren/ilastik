@@ -315,5 +315,4 @@ class OpToImage(Operator):
         if slot is self.Image:
             self.Output.setDirty(roi)
         elif slot is self.ObjectMap:
-            # FIXME: what is correct way to set everything dirty?
-            self.Output.setDirty(slice(None, None, None))
+            self.Output.setDirty([])

@@ -193,6 +193,7 @@ class OpObjectCenterImage(Operator):
 
     def propagateDirty(self, slot, subindex, roi):
         if slot is self.RegionCenters:
+            # FIXME: proper dirty propagation.
             self.Output.setDirty([])
 
 
