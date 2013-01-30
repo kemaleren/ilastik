@@ -202,7 +202,7 @@ class OpObjectTrain(Operator):
     def propagateDirty(self, slot, subindex, roi):
         if slot is not self.FixClassifier and \
            self.inputs["FixClassifier"].value == False:
-            self.outputs["Classifier"].setDirty((slice(0,1,None),))
+            self.outputs["Classifier"].setDirty((slice(0, self._forest_count, None),))
 
 
 class OpObjectPredict(Operator):
