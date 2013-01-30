@@ -142,7 +142,7 @@ class OpObjectTrain(Operator):
     # because you can't call setValue on it (because it then calls
     # setDirty with an empty slice and fails)
 
-    Labels = InputSlot(level=1)
+    Labels = InputSlot(level=1, stype=Opaque)
     Features = InputSlot(level=1, rtype=List)
     FixClassifier = InputSlot(stype="bool")
 
@@ -166,8 +166,11 @@ class OpObjectTrain(Operator):
         labelsMatrix = []
 
         for i in range(len(self.Labels)):
-            # FIXME: why can't we use .value?
-            labels = self.Labels[i][:].wait() # FIXME: sometimes [0]???
+            # TODO: we should be able to use self.Labels[i].value,
+            # but the current implementation of Slot.value() does not
+            # do the right thing.
+            labels = self.Labels[i][:].wait()
+
 
             for t in range(roi.start[0], roi.stop[0]):
                 lab = labels[t].squeeze()
@@ -275,7 +278,7 @@ class OpToImage(Operator):
     """
     name = "OpToImage"
     Image = InputSlot()
-    ObjectMap = InputSlot(stype=Opaque)
+    ObjectMap = InputSlot(stype=Opaque) # TODO: check rtype and stype
     Output = OutputSlot()
 
     def setupOutputs(self):
