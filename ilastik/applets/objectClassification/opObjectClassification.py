@@ -142,7 +142,6 @@ class OpObjectTrain(Operator):
     # you can't call setValue on it (because it then calls setDirty
     # with an empty slice and fails)
     Labels = InputSlot(level=1, stype=Opaque)
-
     Features = InputSlot(level=1, rtype=List)
     FixClassifier = InputSlot(stype="bool")
 
@@ -257,13 +256,13 @@ class OpObjectPredict(Operator):
         pool.wait()
         pool.clean()
 
-        # FIXME: we return from here for now, but afterwards we should
-        # really average the pool results
-        return predictions
+        final_predictions = dict()
+        for t, prediction in predictions.iteritems():
+            prediction = numpy.dstack(prediction)
+            prediction = numpy.average(prediction, axis=2)
+            final_predictions[t] = prediction
 
-        prediction = numpy.dstack(predictions)
-        prediction = numpy.average(prediction, axis=2)
-        return prediction
+        return final_predictions
 
     def propagateDirty(self, slot, subindex, roi):
         self.Predictions.setDirty(roi)
