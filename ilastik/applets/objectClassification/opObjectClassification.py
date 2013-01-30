@@ -282,9 +282,9 @@ class OpToImage(Operator):
         self.Output.meta.assignFrom(self.Image.meta)
 
     def execute(self, slot, subindex, roi, result):
-        # FIXME: .value
-        im = self.Image[:].wait()
-        map_ = self.ObjectMap([]).wait()
+        slc = roi.toSlice()
+        im = self.Image[slc].wait()
+        map_ = self.ObjectMap([]).wait() # FIXME: use roi
 
         for t in range(roi.start[0], roi.stop[0]):
             tmap = map_[t]
@@ -308,7 +308,7 @@ class OpToImage(Operator):
 
             im[t] = tmap[im[t]]
 
-        return im[roi.toSlice()]
+        return im
 
     def propagateDirty(self, slot, subindex, roi):
         self.Output.setDirty(slice(None, None, None))
