@@ -138,11 +138,11 @@ class OpObjectTrain(Operator):
     description = "Train a random forest on multiple images"
     category = "Learning"
 
-    # FIXME: both of these should have rtype List. It's not used now,
-    # because you can't call setValue on it (because it then calls
-    # setDirty with an empty slice and fails)
-
+    # TODO: Labels should have rtype List. It's not used now, because
+    # you can't call setValue on it (because it then calls setDirty
+    # with an empty slice and fails)
     Labels = InputSlot(level=1, stype=Opaque)
+
     Features = InputSlot(level=1, rtype=List)
     FixClassifier = InputSlot(stype="bool")
 
@@ -166,11 +166,11 @@ class OpObjectTrain(Operator):
         labelsMatrix = []
 
         for i in range(len(self.Labels)):
+
             # TODO: we should be able to use self.Labels[i].value,
             # but the current implementation of Slot.value() does not
             # do the right thing.
             labels = self.Labels[i][:].wait()
-
 
             for t in range(roi.start[0], roi.stop[0]):
                 lab = labels[t].squeeze()
@@ -257,8 +257,8 @@ class OpObjectPredict(Operator):
         pool.wait()
         pool.clean()
 
-        #FIXME we return from here for now, but afterwards we should
-        #really average the pool results
+        # FIXME: we return from here for now, but afterwards we should
+        # really average the pool results
         return predictions
 
         prediction = numpy.dstack(predictions)
@@ -287,7 +287,7 @@ class OpToImage(Operator):
     def execute(self, slot, subindex, roi, result):
         slc = roi.toSlice()
         im = self.Image[slc].wait()
-        map_ = self.ObjectMap([]).wait() # FIXME: use roi
+        map_ = self.ObjectMap([]).wait() # TODO: use roi
 
         for t in range(roi.start[0], roi.stop[0]):
             tmap = map_[t]
