@@ -144,20 +144,19 @@ class OpObjectTrain(Operator):
     Labels = InputSlot(level=1, stype=Opaque)
     Features = InputSlot(level=1, rtype=List)
     FixClassifier = InputSlot(stype="bool")
+    ForestCount = InputSlot(stype="int", value=1)
 
     Classifier = OutputSlot()
 
     def __init__(self, *args, **kwargs):
         super(OpObjectTrain, self).__init__(*args, **kwargs)
-        self._forest_count = 1
-        # TODO: Make treecount configurable via an InputSlot
         self._tree_count = 100
         self.FixClassifier.setValue(False)
 
     def setupOutputs(self):
         if self.inputs["FixClassifier"].value == False:
             self.outputs["Classifier"].meta.dtype = object
-            self.outputs["Classifier"].meta.shape = (self._forest_count,)
+            self.outputs["Classifier"].meta.shape = (self.ForestCount.value,)
             self.outputs["Classifier"].meta.axistags  = None
 
     def execute(self, slot, subindex, roi, result):
@@ -188,7 +187,7 @@ class OpObjectTrain(Operator):
             try:
                 # train and store forests in parallel
                 pool = Pool()
-                for i in range(self._forest_count):
+                for i in range(self.ForestCount.value):
                     def train_and_store(number):
                         result[number] = vigra.learning.RandomForest(self._tree_count)
                         result[number].learnRF(featMatrix.astype(numpy.float32),
@@ -204,7 +203,8 @@ class OpObjectTrain(Operator):
     def propagateDirty(self, slot, subindex, roi):
         if slot is not self.FixClassifier and \
            self.inputs["FixClassifier"].value == False:
-            self.outputs["Classifier"].setDirty((slice(0, self._forest_count, None),))
+            slcs = (slice(0, self.ForestCount.value, None),)
+            self.outputs["Classifier"].setDirty(slcs)
 
 
 class OpObjectPredict(Operator):
