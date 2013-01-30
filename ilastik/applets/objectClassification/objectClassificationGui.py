@@ -220,7 +220,9 @@ class ObjectClassificationGui(LabelingGui):
 
         """
         label = self.editor.brushingModel.drawnNumber
-        assert 0 <= label < self._labelingSlots.maxLabelValue.value
+        if label == self.editor.brushingModel.erasingNumber:
+            label = 0
+        assert 0 <= label <= self._labelingSlots.maxLabelValue.value
         slicing = tuple(slice(i, i+1) for i in pos5D)
 
         # FIXME: this does not work with slot.[slicing].wait()
