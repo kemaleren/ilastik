@@ -225,8 +225,7 @@ class ObjectClassificationGui(LabelingGui):
         assert 0 <= label <= self._labelingSlots.maxLabelValue.value
         slicing = tuple(slice(i, i+1) for i in pos5D)
 
-        # FIXME: this does not work with slot.[slicing].wait()
-        arr = layer.segmentationImageSlot.value[slicing]
+        arr = layer.segmentationImageSlot[slicing].wait()
         obj = arr.flat[0]
         if obj == 0: # background
             return
