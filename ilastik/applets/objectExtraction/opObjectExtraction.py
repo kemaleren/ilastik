@@ -30,7 +30,6 @@ class OpLabelImage(Operator):
         self._processedTimeSteps = []
 
     def setupOutputs(self):
-        import util; util.set_trace
         self.LabelImage.meta.assignFrom(self.BinaryImage.meta)
         self.LabelImage.meta.dtype = numpy.uint32
         self.LabelImageComputation.meta.dtype = numpy.float
