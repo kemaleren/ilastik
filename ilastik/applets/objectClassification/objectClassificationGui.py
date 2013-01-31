@@ -7,6 +7,7 @@ from ilastik.widgets.featureDlg import FeatureDlg
 
 import os
 import numpy
+from ilastik.utility import bind
 from lazyflow.operators import OpSubRegion
 
 import logging
