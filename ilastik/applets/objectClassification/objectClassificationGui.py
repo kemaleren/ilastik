@@ -14,7 +14,6 @@ import logging
 logger = logging.getLogger(__name__)
 traceLogger = logging.getLogger('TRACE.' + __name__)
 
-from lazyflow.tracer import traceLogged
 from ilastik.applets.layerViewer import LayerViewerGui
 from ilastik.applets.labeling import LabelingGui
 
@@ -44,7 +43,6 @@ class ObjectClassificationGui(LabelingGui):
         self.labelingDrawerUi.checkInteractive.setChecked(False)
         self.labelingDrawerUi.checkShowPredictions.setChecked(False)
 
-    @traceLogged(traceLogger)
     def __init__(self, op, shellRequestSignal, guiControlSignal):
         # Tell our base class which slots to monitor
         labelSlots = LabelingGui.LabelingSlots()
@@ -78,7 +76,6 @@ class ObjectClassificationGui(LabelingGui):
 
         self.op.NumLabels.notifyDirty(bind(self.handleLabelSelectionChange))
 
-    @traceLogged(traceLogger)
     def initAppletDrawerUi(self):
         """
         Load the ui file for the applet drawer, which we own.
@@ -87,7 +84,6 @@ class ObjectClassificationGui(LabelingGui):
         # (We don't pass self here because we keep the drawer ui in a separate object.)
         self.drawer = uic.loadUi(localDir+"/drawer.ui")
 
-    @traceLogged(traceLogger)
     def createLabelLayer(self, direct=False):
         """Return a colortable layer that displays the label slot
         data, along with its associated label source.
@@ -101,7 +97,6 @@ class ObjectClassificationGui(LabelingGui):
         if not labelOutput.ready():
             return (None, None)
         else:
-            traceLogger.debug("Setting up labels for image index")
             labelsrc = LazyflowSinkSource(labelOutput,
                                           labelInput)
             labellayer = ClickableColortableLayer(self.editor,
@@ -124,7 +119,6 @@ class ObjectClassificationGui(LabelingGui):
 
             return labellayer, labelsrc
 
-    @traceLogged(traceLogger)
     def setupLayers(self):
 
         # Base class provides the label layer.
@@ -157,7 +151,6 @@ class ObjectClassificationGui(LabelingGui):
         return layers
 
     @pyqtSlot()
-    @traceLogged(traceLogger)
     def handleLabelSelectionChange(self):
         enabled = False
         if self.op.NumLabels.ready():
@@ -168,7 +161,6 @@ class ObjectClassificationGui(LabelingGui):
         self.labelingDrawerUi.checkInteractive.setEnabled(enabled)
         self.labelingDrawerUi.checkShowPredictions.setEnabled(enabled)
 
-    @traceLogged(traceLogger)
     def toggleInteractive(self, checked):
         logger.debug("toggling interactive mode to '%r'" % checked)
         # if checked and len(self.op.ObjectFeatures) == 0:
@@ -199,7 +191,6 @@ class ObjectClassificationGui(LabelingGui):
         self.interactiveModeActive = checked
 
     @pyqtSlot()
-    @traceLogged(traceLogger)
     def handleShowPredictionsClicked(self):
         checked = self.labelingDrawerUi.checkShowPredictions.isChecked()
         for layer in self.layerstack:
