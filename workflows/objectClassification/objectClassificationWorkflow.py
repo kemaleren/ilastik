@@ -30,7 +30,7 @@ class ObjectClassificationWorkflow(Workflow):
                                                        "Input: Segmentation",
                                                        "Input Segmentation",
                                                        batchDataGui=False,
-                                                       force5d=True)
+                                                       force5d=False)
         self.objectExtractionApplet = ObjectExtractionApplet(workflow=self)
         self.objectClassificationApplet = ObjectClassificationApplet(workflow=self)
 
