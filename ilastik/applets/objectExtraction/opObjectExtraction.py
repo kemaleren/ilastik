@@ -140,11 +140,13 @@ def opFeaturesFactory(name, features):
     cls.__name__ = name
     return cls
 
-OpRegionCenters = opFeaturesFactory('OpRegionCenters', ['Count', 'RegionCenter'])
 OpRegionFeatures = opFeaturesFactory('OpRegionFeatures',
                                      ['Count',
                                       'RegionCenter',
-                                      'Coord<ArgMaxWeight>'])
+                                      'Coord<ArgMaxWeight>',
+                                      'Coord<Minimum>',
+                                      'Coord<Maximum>',
+                                  ])
 
 
 class OpObjectCenterImage(Operator):
@@ -213,7 +215,6 @@ class OpObjectExtraction(Operator):
 
         # internal operators
         self._opLabelImage = OpLabelImage(parent=self, graph = graph)
-        self._opRegCent = OpRegionCenters(parent=self, graph = graph)
         self._opRegFeats = OpRegionFeatures(parent=self, graph = graph)
         self._opObjectCenterImage = OpObjectCenterImage(parent=self, graph=self.graph)
 
@@ -221,16 +222,14 @@ class OpObjectExtraction(Operator):
         self._opLabelImage.BinaryImage.connect(self.BinaryImage)
         self._opLabelImage.BackgroundLabels.connect(self.BackgroundLabels)
 
-        self._opRegCent.LabelImage.connect(self._opLabelImage.LabelImage)
         self._opRegFeats.LabelImage.connect(self._opLabelImage.LabelImage)
 
         self._opObjectCenterImage.BinaryImage.connect(self.BinaryImage)
-        self._opObjectCenterImage.RegionCenters.connect(self._opRegCent.Output)
+        self._opObjectCenterImage.RegionCenters.connect(self._opRegFeats.Output)
 
         # connect outputs
         self.LabelImage.connect(self._opLabelImage.LabelImage)
         self.ObjectCenterImage.connect(self._opObjectCenterImage.Output)
-        self.RegionCenters.connect(self._opRegCent.Output)
         self.RegionFeatures.connect(self._opRegFeats.Output)
 
     def setupOutputs(self):
