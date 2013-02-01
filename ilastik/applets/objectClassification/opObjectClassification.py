@@ -30,7 +30,7 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
     SegmentationImages = InputSlot(level=1)
     ObjectFeatures = InputSlot(rtype=List, level=1)
     LabelsAllowedFlags = InputSlot(stype='bool', level=1)
-    LabelInputs = InputSlot(stype=Opaque, optional=True, level=1)
+    LabelInputs = InputSlot(stype=Opaque, rtype=List, optional=True, level=1)
     FreezePredictions = InputSlot(stype='bool')
 
     ################
@@ -141,7 +141,7 @@ class OpObjectTrain(Operator):
     # TODO: Labels should have rtype List. It's not used now, because
     # you can't call setValue on it (because it then calls setDirty
     # with an empty slice and fails)
-    Labels = InputSlot(level=1, stype=Opaque)
+    Labels = InputSlot(level=1, stype=Opaque, rtype=List)
     Features = InputSlot(level=1, rtype=List)
     FixClassifier = InputSlot(stype="bool")
     ForestCount = InputSlot(stype="int", value=1)
@@ -168,7 +168,7 @@ class OpObjectTrain(Operator):
             # TODO: we should be able to use self.Labels[i].value,
             # but the current implementation of Slot.value() does not
             # do the right thing.
-            labels = self.Labels[i][:].wait()
+            labels = self.Labels[i]([]).wait()
 
             for t in range(roi.start[0], roi.stop[0]):
                 lab = labels[t].squeeze()
@@ -234,7 +234,7 @@ class OpObjectPredict(Operator):
         # with setValue, so for now we compute everything.
         feats = {}
         predictions = {}
-        for t in range(roi.start[0], roi.stop[0]):
+        for t in roi._l:
             features = self.Features([t]).wait()[t][0]
             tempfeats = numpy.asarray(features['Count']).astype(numpy.float32)
             if tempfeats.ndim == 1:
@@ -248,7 +248,7 @@ class OpObjectPredict(Operator):
         # predict the data with all the forests in parallel
         pool = Pool()
 
-        for t in range(roi.start[0], roi.stop[0]):
+        for t in roi._l:
             for i, f in enumerate(forests):
                 req = pool.request(partial(predict_forest, t, i))
 
@@ -276,7 +276,7 @@ class OpToImage(Operator):
     """
     name = "OpToImage"
     Image = InputSlot()
-    ObjectMap = InputSlot(stype=Opaque) # TODO: check rtype and stype
+    ObjectMap = InputSlot(stype=Opaque, rtype=List)
     Output = OutputSlot()
 
     def setupOutputs(self):
@@ -285,9 +285,9 @@ class OpToImage(Operator):
     def execute(self, slot, subindex, roi, result):
         slc = roi.toSlice()
         img = self.Image[slc].wait()
-        map_ = self.ObjectMap([]).wait() # TODO: use roi
 
         for t in range(roi.start[0], roi.stop[0]):
+            map_ = self.ObjectMap([t]).wait()
             tmap = map_[t]
 
             # FIXME: necessary because predictions are returned
