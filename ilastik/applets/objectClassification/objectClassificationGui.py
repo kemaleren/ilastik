@@ -234,4 +234,4 @@ class ObjectClassificationGui(LabelingGui):
         labels[obj] = label
         labelsdict[t] = labels
         labelslot.setValue(labelsdict)
-        labelslot.setDirty([obj])
+        labelslot.setDirty([(t, obj)])

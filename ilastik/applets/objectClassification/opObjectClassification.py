@@ -70,9 +70,11 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
 
         self.opLabelsToImage.inputs["Image"].connect(self.SegmentationImages)
         self.opLabelsToImage.inputs["ObjectMap"].connect(self.LabelInputs)
+        self.opLabelsToImage.inputs["Features"].connect(self.ObjectFeatures)
 
         self.opPredictionsToImage.inputs["Image"].connect(self.SegmentationImages)
         self.opPredictionsToImage.inputs["ObjectMap"].connect(self.opPredict.Predictions)
+        self.opPredictionsToImage.inputs["Features"].connect(self.ObjectFeatures)
 
         # connect outputs
         self.NumLabels.setValue(_MAXLABELS)
@@ -138,9 +140,6 @@ class OpObjectTrain(Operator):
     description = "Train a random forest on multiple images"
     category = "Learning"
 
-    # TODO: Labels should have rtype List. It's not used now, because
-    # you can't call setValue on it (because it then calls setDirty
-    # with an empty slice and fails)
     Labels = InputSlot(level=1, stype=Opaque, rtype=List)
     Features = InputSlot(level=1, rtype=List)
     FixClassifier = InputSlot(stype="bool")
@@ -264,7 +263,7 @@ class OpObjectPredict(Operator):
         return final_predictions
 
     def propagateDirty(self, slot, subindex, roi):
-        self.Predictions.setDirty(roi)
+        self.Predictions.setDirty([])
 
 
 class OpToImage(Operator):
@@ -277,6 +276,7 @@ class OpToImage(Operator):
     name = "OpToImage"
     Image = InputSlot()
     ObjectMap = InputSlot(stype=Opaque, rtype=List)
+    Features = InputSlot(rtype=List)
     Output = OutputSlot()
 
     def setupOutputs(self):
@@ -314,5 +314,17 @@ class OpToImage(Operator):
     def propagateDirty(self, slot, subindex, roi):
         if slot is self.Image:
             self.Output.setDirty(roi)
-        elif slot is self.ObjectMap:
-            self.Output.setDirty([])
+
+        elif slot is self.ObjectMap or slot is self.Features:
+            if roi._l == []:
+                self.Output.setDirty(slice(None))
+            else:
+                # for each dirty object, only set its bounding box dirty
+                ts = list(set(t for t, _ in roi._l))
+                feats = self.Features(ts).wait()
+                for t, obj in roi._l:
+                    min_coords = feats[t][0]['Coord<Minimum>'][obj]
+                    max_coords = feats[t][0]['Coord<Maximum>'][obj]
+                    slcs = list(slice(*args) for args in zip(min_coords, max_coords))
+                    slcs = [slice(t, t+1),] + slcs + [slice(None),]
+                    self.Output.setDirty(slcs)
