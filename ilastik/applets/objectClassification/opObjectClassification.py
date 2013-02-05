@@ -16,7 +16,7 @@ from lazyflow.request import Request, Pool
 from functools import partial
 
 from ilastik.applets.pixelClassification.opPixelClassification import OpShapeReader, OpMaxValue
-from ilastik.utility import OperatorSubView, MultiLaneOperatorABC, OpMultiLaneWrapper 
+from ilastik.utility import OperatorSubView, MultiLaneOperatorABC, OpMultiLaneWrapper
 _MAXLABELS = 2
 
 class OpObjectClassification(Operator, MultiLaneOperatorABC):
@@ -220,6 +220,8 @@ class OpObjectPredict(Operator):
         self.Predictions.meta.dtype = object
         self.Predictions.meta.axistags = None
 
+        self.cache = dict()
+
     def execute(self, slot, subindex, roi, result):
         forests=self.inputs["Classifier"][:].wait()
 
@@ -234,6 +236,8 @@ class OpObjectPredict(Operator):
         feats = {}
         predictions = {}
         for t in roi._l:
+            if t in self.cache:
+                continue
             features = self.Features([t]).wait()[t][0]
             tempfeats = numpy.asarray(features['Count']).astype(numpy.float32)
             if tempfeats.ndim == 1:
@@ -248,6 +252,8 @@ class OpObjectPredict(Operator):
         pool = Pool()
 
         for t in roi._l:
+            if t in self.cache:
+                continue
             for i, f in enumerate(forests):
                 req = pool.request(partial(predict_forest, t, i))
 
@@ -255,14 +261,17 @@ class OpObjectPredict(Operator):
         pool.clean()
 
         final_predictions = dict()
-        for t, prediction in predictions.iteritems():
-            prediction = numpy.dstack(prediction)
-            prediction = numpy.average(prediction, axis=2)
-            final_predictions[t] = prediction
+
+        for t in roi._l:
+            if t not in self.cache:
+                prediction = numpy.dstack(predictions[t])
+                self.cache[t] = numpy.average(prediction, axis=2)
+            final_predictions[t] = self.cache[t]
 
         return final_predictions
 
     def propagateDirty(self, slot, subindex, roi):
+        self.cache = dict()
         self.Predictions.setDirty([])
 
 
