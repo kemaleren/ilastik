@@ -19,6 +19,11 @@ from ilastik.applets.pixelClassification.opPixelClassification import OpShapeRea
 from ilastik.utility import OperatorSubView, MultiLaneOperatorABC, OpMultiLaneWrapper
 _MAXLABELS = 2
 
+USELESS_FEATS = ['RegionCenter',
+                 'Coord<Minimum>',
+                 'Coord<Maximum>']
+
+
 class OpObjectClassification(Operator, MultiLaneOperatorABC):
     name = "OpObjectClassification"
     category = "Top-level"
@@ -202,6 +207,8 @@ class OpObjectTrain(Operator):
                 labelsMatrix.append(lab[index])
 
                 for key, value in feats[t][0].iteritems():
+                    if key in USELESS_FEATS:
+                        continue
                     ft = numpy.asarray(value.squeeze())
                     featMatrix.append(ft[index])
 
@@ -270,6 +277,8 @@ class OpObjectPredict(Operator):
 
             ftsMatrix = []
             for key, value in self.Features([t]).wait()[t][0].iteritems():
+                if key in USELESS_FEATS:
+                    continue
                 tmpfts = numpy.asarray(value).astype(numpy.float32)
                 _atleast_nd(tmpfts, 2)
                 ftsMatrix.append(tmpfts)
