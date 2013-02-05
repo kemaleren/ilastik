@@ -230,9 +230,9 @@ class OpObjectPredict(Operator):
             return numpy.zeros(numpy.subtract(roi.stop, roi.start),
                                dtype=numpy.float32)[...]
 
-        # FIXME FIXME: over here, we should really select only the
-        # objects in the roi. However, roi of list type doesn't work
-        # with setValue, so for now we compute everything.
+        # FIXME: right now we predict and cache a whole time slice. We
+        # should instead cache at the object level, and only predict
+        # for objects visible in the roi.
         feats = {}
         predictions = {}
         for t in roi._l:
