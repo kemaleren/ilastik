@@ -167,8 +167,6 @@ class OpObjectTrain(Operator):
         featMatrix = []
         labelsMatrix = []
 
-        print 'training random forests.'
-
         for i in range(len(self.Labels)):
             feats = self.Features[i]([]).wait()
 
@@ -212,7 +210,6 @@ class OpObjectTrain(Operator):
     def propagateDirty(self, slot, subindex, roi):
         if slot is not self.FixClassifier and \
            self.inputs["FixClassifier"].value == False:
-            print 'setting classifiers dirty'
             slcs = (slice(0, self.ForestCount.value, None),)
             self.outputs["Classifier"].setDirty(slcs)
 
@@ -250,7 +247,6 @@ class OpObjectPredict(Operator):
             if t in self.cache:
                 continue
 
-            print 'predicting time slice {}'.format(t)
             features = self.Features([t]).wait()[t][0]
             tempfeats = numpy.asarray(features['Count']).astype(numpy.float32)
             if tempfeats.ndim == 1:
