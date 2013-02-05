@@ -139,6 +139,27 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
         return OperatorSubView(self, laneIndex)
 
 
+def _atleast_nd(a, ndim):
+    """Like numpy.atleast_1d and friends, but supports arbitrary ndim,
+    always puts extra dimensions last, and resizes.
+
+    """
+    if ndim < a.ndim:
+        return
+    nnew = ndim - a.ndim
+    newshape = tuple(list(a.shape) + [1] * nnew)
+    a.resize(newshape)
+
+
+def _concatenate(arrays, axis=1):
+    """wrapper to numpy.concatenate that resizes arrays first."""
+    arrays = list(a for a in arrays if 0 not in a.shape)
+    maxd = max(max(a.ndim for a in arrays), 2)
+    for a in arrays:
+        _atleast_nd(a, maxd)
+    return numpy.concatenate(arrays, axis=axis)
+
+
 class OpObjectTrain(Operator):
     name = "TrainRandomForestObjects"
     description = "Train a random forest on multiple images"
@@ -177,19 +198,20 @@ class OpObjectTrain(Operator):
 
             for t in feats:
                 lab = labels[t].squeeze()
+                index = numpy.nonzero(lab)
+                labelsMatrix.append(lab[index])
 
                 # FIXME: use all features
-                counts = feats[t][0]['Count']
-                counts = numpy.asarray(counts.squeeze())
-                index = numpy.nonzero(lab)
-                featMatrix.append(counts[index])
-                labelsMatrix.append(lab[index])
+                for key, value in feats[t][0].iteritems():
+                    ft = numpy.asarray(value.squeeze())
+                    featMatrix.append(ft[index])
 
         if len(featMatrix) == 0 or len(labelsMatrix) == 0:
             result[:] = None
         else:
-            featMatrix = numpy.concatenate(featMatrix, axis=0).reshape(-1, 1)
-            labelsMatrix = numpy.concatenate(labelsMatrix, axis=0).reshape(-1, 1)
+            featMatrix = _concatenate(featMatrix)
+            labelsMatrix = _concatenate(labelsMatrix)
+
             try:
                 # train and store forests in parallel
                 pool = Pool()
@@ -247,11 +269,13 @@ class OpObjectPredict(Operator):
             if t in self.cache:
                 continue
 
-            features = self.Features([t]).wait()[t][0]
-            tempfeats = numpy.asarray(features['Count']).astype(numpy.float32)
-            if tempfeats.ndim == 1:
-                tempfeats.resize(tempfeats.shape + (1,))
-            feats[t] = tempfeats
+            ftsMatrix = []
+            for key, value in self.Features([t]).wait()[t][0].iteritems():
+                tmpfts = numpy.asarray(value).astype(numpy.float32)
+                _atleast_nd(tmpfts, 2)
+                ftsMatrix.append(tmpfts)
+
+            feats[t] = _concatenate(ftsMatrix)
             predictions[t]  = [0] * len(forests)
 
         def predict_forest(t, number):
