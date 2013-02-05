@@ -201,7 +201,6 @@ class OpObjectTrain(Operator):
                 index = numpy.nonzero(lab)
                 labelsMatrix.append(lab[index])
 
-                # FIXME: use all features
                 for key, value in feats[t][0].iteritems():
                     ft = numpy.asarray(value.squeeze())
                     featMatrix.append(ft[index])
