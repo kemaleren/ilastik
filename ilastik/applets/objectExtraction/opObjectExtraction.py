@@ -112,6 +112,8 @@ def opFeaturesFactory(name, features):
             if slot is not self.Output:
                 return
             feats = {}
+            if len(roi) == 0:
+                roi = range(self.LabelImage.meta.shape[0])
             for t in roi:
                 if t in self._cache:
                     feats_at = self._cache[t]

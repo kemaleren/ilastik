@@ -57,6 +57,8 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
         self.opLabelsToImage = OpMultiLaneWrapper(OpToImage, **opkwargs)
         self.opPredictionsToImage = OpMultiLaneWrapper(OpToImage, **opkwargs)
 
+        self.classifier_cache = OpValueCache(parent=self, graph=self.graph)
+
         # connect inputs
         self.opInputShapeReader.Input.connect(self.SegmentationImages)
 
@@ -64,8 +66,10 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
         self.opTrain.inputs['Labels'].connect(self.LabelInputs)
         self.opTrain.inputs['FixClassifier'].setValue(False)
 
+        self.classifier_cache.inputs["Input"].connect(self.opTrain.outputs['Classifier'])
+
         self.opPredict.inputs["Features"].connect(self.ObjectFeatures)
-        self.opPredict.inputs["Classifier"].connect(self.opTrain.outputs["Classifier"])
+        self.opPredict.inputs["Classifier"].connect(self.classifier_cache.outputs['Output'])
         self.opPredict.inputs["LabelsCount"].setValue(_MAXLABELS)
 
         self.opLabelsToImage.inputs["Image"].connect(self.SegmentationImages)
@@ -159,19 +163,24 @@ class OpObjectTrain(Operator):
             self.outputs["Classifier"].meta.axistags = None
 
     def execute(self, slot, subindex, roi, result):
+
         featMatrix = []
         labelsMatrix = []
 
+        print 'training random forests.'
+
         for i in range(len(self.Labels)):
+            feats = self.Features[i]([]).wait()
 
             # TODO: we should be able to use self.Labels[i].value,
             # but the current implementation of Slot.value() does not
             # do the right thing.
             labels = self.Labels[i]([]).wait()
 
-            for t in range(roi.start[0], roi.stop[0]):
+            for t in feats:
                 lab = labels[t].squeeze()
-                feats = self.Features[i]([t]).wait()
+
+                # FIXME: use all features
                 counts = feats[t][0]['Count']
                 counts = numpy.asarray(counts.squeeze())
                 index = numpy.nonzero(lab)
@@ -197,11 +206,13 @@ class OpObjectTrain(Operator):
             except:
                 print ("couldn't learn classifier")
                 raise
+
         return result
 
     def propagateDirty(self, slot, subindex, roi):
         if slot is not self.FixClassifier and \
            self.inputs["FixClassifier"].value == False:
+            print 'setting classifiers dirty'
             slcs = (slice(0, self.ForestCount.value, None),)
             self.outputs["Classifier"].setDirty(slcs)
 
@@ -238,6 +249,8 @@ class OpObjectPredict(Operator):
         for t in roi._l:
             if t in self.cache:
                 continue
+
+            print 'predicting time slice {}'.format(t)
             features = self.Features([t]).wait()[t][0]
             tempfeats = numpy.asarray(features['Count']).astype(numpy.float32)
             if tempfeats.ndim == 1:
