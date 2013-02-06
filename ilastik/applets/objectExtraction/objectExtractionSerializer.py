@@ -2,8 +2,6 @@ from ilastik.applets.base.appletSerializer import AppletSerializer,\
     deleteIfPresent, getOrCreateGroup
 
 class ObjectExtractionSerializer(AppletSerializer):
-    """
-    """
     def __init__(self, mainOperator, projectFileGroupName):
         super( ObjectExtractionSerializer, self ).__init__( projectFileGroupName )
         self.mainOperator = mainOperator
