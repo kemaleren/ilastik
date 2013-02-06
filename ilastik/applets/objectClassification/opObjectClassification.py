@@ -21,7 +21,10 @@ _MAXLABELS = 2
 
 USELESS_FEATS = ['RegionCenter',
                  'Coord<Minimum>',
-                 'Coord<Maximum>']
+                 'Coord<Maximum>',
+                 'Coord<Minimum >',
+                 'Coord<Maximum >',
+]
 
 
 class OpObjectClassification(Operator, MultiLaneOperatorABC):
