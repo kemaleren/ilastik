@@ -93,7 +93,6 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
 
         self.SegmentationImagesOut.connect(self.SegmentationImages)
 
-        # TODO: remove these
         self.Eraser.setValue(100)
         self.DeleteLabel.setValue(-1)
 
@@ -373,8 +372,12 @@ class OpToImage(Operator):
                 ts = list(set(t for t, _ in roi._l))
                 feats = self.Features(ts).wait()
                 for t, obj in roi._l:
-                    min_coords = feats[t][0]['Coord<Minimum>'][obj]
-                    max_coords = feats[t][0]['Coord<Maximum>'][obj]
+                    try:
+                        min_coords = feats[t][0]['Coord<Minimum>'][obj]
+                        max_coords = feats[t][0]['Coord<Maximum>'][obj]
+                    except KeyError:
+                        min_coords = feats[t][0]['Coord<Minimum >'][obj]
+                        max_coords = feats[t][0]['Coord<Maximum >'][obj]
                     slcs = list(slice(*args) for args in zip(min_coords, max_coords))
                     slcs = [slice(t, t+1),] + slcs + [slice(None),]
                     self.Output.setDirty(slcs)

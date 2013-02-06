@@ -12,51 +12,45 @@ class ObjectExtractionSerializer(AppletSerializer):
         op = self.mainOperator.innerOperators[0]
         print "object extraction: serializeToHdf5", topGroup, hdf5File, projectFilePath
         print "object extraction: saving label image"
-        src = op._opLabelImage._mem_h5
         deleteIfPresent( topGroup, "LabelImage")
-        src.copy('/LabelImage', topGroup) 
+        topGroup.create_dataset(name="LabelImage", data=op._opLabelImage._label_img)
 
         print "object extraction: saving region features"
         deleteIfPresent( topGroup, "samples")
         samples_gr = getOrCreateGroup( topGroup, "samples" )
         for t in op._opRegFeats._cache.keys():
             t_gr = samples_gr.create_group(str(t))
-            for ch in range(len(op._opRegFeats._cache[t])):            
+            for ch in range(len(op._opRegFeats._cache[t])):
                 ch_gr = t_gr.create_group(str(ch))
-                ch_gr.create_dataset(name="RegionCenter", data=op._opRegFeats._cache[t][ch]['RegionCenter'])
-                ch_gr.create_dataset(name="Count", data=op._opRegFeats._cache[t][ch]['Count'])            
-            
+                feats = op._opRegFeats._cache[t][ch]
+                for key, val in feats.iteritems():
+                    ch_gr.create_dataset(name=key, data=val)
+
 
     def _deserializeFromHdf5(self, topGroup, groupVersion, hdf5File, projectFilePath):
         print "objectExtraction: deserializeFromHdf5", topGroup, groupVersion, hdf5File, projectFilePath
 
         print "objectExtraction: loading label image"
-        dest = self.mainOperator.innerOperators[0]._opLabelImage._mem_h5        
-        if 'LabelImage' in topGroup.keys():            
-            del dest['LabelImage']
-            topGroup.copy('LabelImage', dest)            
-            self.mainOperator.innerOperators[0]._opLabelImage._fixed = False        
-            self.mainOperator.innerOperators[0]._opLabelImage._processedTimeSteps = range(topGroup['LabelImage'].shape[0])            
-
+        op = self.mainOperator.innerOperators[0]
+        if 'LabelImage' in topGroup.keys():
+            op._opLabelImage._label_img = topGroup['LabelImage'].value
+            op._opLabelImage._fixed = False
+            op._opLabelImage._processedTimeSteps = range(topGroup['LabelImage'].shape[0])
 
         print "objectExtraction: loading region features"
-        if "samples" in topGroup.keys():            
-
+        if "samples" in topGroup.keys():
             cache = {}
             for t in topGroup["samples"].keys():
                 cache[int(t)] = []
                 for ch in sorted(topGroup["samples"][t].keys()):
-                    feat = dict()                            
-                    if 'RegionCenter' in topGroup["samples"][t][ch].keys():
-                        feat['RegionCenter'] = topGroup["samples"][t][ch]['RegionCenter'].value
-                    if 'Count' in topGroup["samples"][t][ch].keys():                    
-                        feat['Count'] = topGroup["samples"][t][ch]['Count'].value                    
-                    cache[int(t)].append(feat)                    
+                    feat = dict()
+                    for key in topGroup["samples"][t][ch].keys():
+                        feat[key] = topGroup["samples"][t][ch][key].value
+                    cache[int(t)].append(feat)
             self.mainOperator.innerOperators[0]._opRegFeats._cache = cache
 
     def isDirty(self):
         return True
 
     def unload(self):
-        print "ObjExtraction.unload not implemented" 
-
+        print "ObjExtraction.unload not implemented"
