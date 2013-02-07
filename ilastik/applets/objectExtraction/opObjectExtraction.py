@@ -26,6 +26,7 @@ class OpLabelImage(Operator):
 
     def __init__(self, parent=None, graph=None):
         super(OpLabelImage, self).__init__(parent=parent,graph=graph)
+        self._mem_h5 = h5py.File(str(id(self)), driver='core', backing_store=False)
         self._processedTimeSteps = []
 
     def setupOutputs(self):
@@ -34,8 +35,12 @@ class OpLabelImage(Operator):
         self.LabelImageComputation.meta.dtype = numpy.float
         self.LabelImageComputation.meta.shape = [0]
 
-        shape = self.LabelImage.meta.shape
-        self._label_img = numpy.zeros(shape, dtype=numpy.uint32)
+        m = self.LabelImage.meta
+        self._mem_h5.create_dataset('LabelImage', shape=m.shape, dtype=numpy.uint32, compression=1)
+
+
+    def __del__(self):
+        self._mem_h5.close()
 
     def execute(self, slot, subindex, roi, destination):
         if slot is self.LabelImage:
@@ -45,28 +50,25 @@ class OpLabelImage(Operator):
                 if t not in self._processedTimeSteps:
                     destination[t-roi.start[0]:t-roi.start[0]+1,...] = 0
                 else:
-                    destination[t-roi.start[0]:t-roi.start[0]+1,...] = self._label_img[slc]
+                    destination[t-roi.start[0]:t-roi.start[0]+1,...] = self._mem_h5['LabelImage'][slc]
             return destination
 
         if slot is self.LabelImageComputation:
             channels = self.BinaryImage.meta.shape[-1]
-            for t in range(roi.start[0], roi.stop[0]):
+            for t in range(roi.start[0],roi.stop[0]):
                 if t not in self._processedTimeSteps:
-                    for ch in range(channels):
-                        print "Calculating LabelImage at t=" + str(t) + ", ch=" + str(ch) + " "
-                        sroi = SubRegion(self.BinaryImage, start=[t,0,0,0,ch],
-                                         stop=[t+1,] + list(self.BinaryImage.meta.shape[1:-1]) + [ch+1,])
+                    for c in range(channels):
+                        print "Calculating LabelImage at t=" + str(t) + ", c=" + str(c) + " "
+                        sroi = SubRegion(self.BinaryImage, start=[t,0,0,0,c],
+                                         stop=[t+1,] + list(self.BinaryImage.meta.shape[1:-1]) + [c+1,])
                         a = self.BinaryImage.get(sroi).wait()
                         a = numpy.array(a[0,...,0],dtype=numpy.uint8)
                         if self.BackgroundLabels.ready():
-                            backgroundLabel = self.BackgroundLabels.value[ch]
+                            backgroundLabel = self.BackgroundLabels.value[c]
                         else:
                             backgroundLabel = self.defaultBackground
                         if backgroundLabel != -1:
-                            result = vigra.analysis.labelVolumeWithBackground(a, background_value=backgroundLabel)
-                            self._label_img[t, ..., ch] = result
-
-
+                            self._mem_h5['LabelImage'][t,...,c] = vigra.analysis.labelVolumeWithBackground(a, background_value = backgroundLabel)
                     self._processedTimeSteps.append(t)
 
     def propagateDirty(self, slot, subindex, roi):
