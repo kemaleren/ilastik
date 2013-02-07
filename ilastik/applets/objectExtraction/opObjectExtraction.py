@@ -35,9 +35,11 @@ class OpLabelImage(Operator):
         self.LabelImageComputation.meta.dtype = numpy.float
         self.LabelImageComputation.meta.shape = [0]
 
-        m = self.LabelImage.meta
-        self._mem_h5.create_dataset('LabelImage', shape=m.shape, dtype=numpy.uint32, compression=1)
-
+        shape = self.LabelImage.meta.shape
+        self._mem_h5.create_dataset('LabelImage', shape=shape,
+                                    dtype=numpy.uint32, compression=1,
+                                    chunks=True,
+                                    )
 
     def __del__(self):
         self._mem_h5.close()
