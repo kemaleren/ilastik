@@ -11,7 +11,7 @@ class ObjectExtractionSerializer(AppletSerializer):
         print "object extraction: serializeToHdf5", topGroup, hdf5File, projectFilePath
         print "object extraction: saving label image"
         deleteIfPresent( topGroup, "LabelImage")
-        topGroup.create_dataset(name="LabelImage", data=op._opLabelImage._label_img)
+        op._opLabelImage._mem_h5.copy('/LabelImage', topGroup)
 
         print "object extraction: saving region features"
         deleteIfPresent( topGroup, "samples")
@@ -30,8 +30,11 @@ class ObjectExtractionSerializer(AppletSerializer):
 
         print "objectExtraction: loading label image"
         op = self.mainOperator.innerOperators[0]
+
         if 'LabelImage' in topGroup.keys():
-            op._opLabelImage._label_img = topGroup['LabelImage'].value
+            dest = op._opLabelImage._mem_h5
+            del dest['LabelImage']
+            topGroup.copy('LabelImage', dest)
             op._opLabelImage._fixed = False
             op._opLabelImage._processedTimeSteps = range(topGroup['LabelImage'].shape[0])
 
