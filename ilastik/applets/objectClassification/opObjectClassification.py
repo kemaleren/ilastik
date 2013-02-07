@@ -158,9 +158,11 @@ def _atleast_nd(a, ndim):
     a.resize(newshape)
 
 
-def _concatenate(arrays, axis=1):
+def _concatenate(arrays, axis):
     """wrapper to numpy.concatenate that resizes arrays first."""
     arrays = list(a for a in arrays if 0 not in a.shape)
+    if len(arrays) == 0:
+        return numpy.array([])
     maxd = max(max(a.ndim for a in arrays), 2)
     for a in arrays:
         _atleast_nd(a, maxd)
@@ -203,22 +205,28 @@ class OpObjectTrain(Operator):
             # do the right thing.
             labels = self.Labels[i]([]).wait()
 
+            featsMatrix_tmp = []
+            labelsMatrix_tmp = []
+
             for t in feats:
                 lab = labels[t].squeeze()
                 index = numpy.nonzero(lab)
-                labelsMatrix.append(lab[index])
+                labelsMatrix_tmp.append(lab[index])
 
                 for key, value in feats[t][0].iteritems():
                     if key in USELESS_FEATS:
                         continue
                     ft = numpy.asarray(value.squeeze())
-                    featMatrix.append(ft[index])
+                    featsMatrix_tmp.append(ft[index])
+
+            featMatrix.append(_concatenate(featsMatrix_tmp, axis=1))
+            labelsMatrix.append(_concatenate(labelsMatrix_tmp, axis=1))
 
         if len(featMatrix) == 0 or len(labelsMatrix) == 0:
             result[:] = None
         else:
-            featMatrix = _concatenate(featMatrix)
-            labelsMatrix = _concatenate(labelsMatrix)
+            featMatrix = _concatenate(featMatrix, axis=0)
+            labelsMatrix = _concatenate(labelsMatrix, axis=0)
 
             try:
                 # train and store forests in parallel
@@ -285,7 +293,7 @@ class OpObjectPredict(Operator):
                 _atleast_nd(tmpfts, 2)
                 ftsMatrix.append(tmpfts)
 
-            feats[t] = _concatenate(ftsMatrix)
+            feats[t] = _concatenate(ftsMatrix, axis=1)
             predictions[t]  = [0] * len(forests)
 
         def predict_forest(t, number):
