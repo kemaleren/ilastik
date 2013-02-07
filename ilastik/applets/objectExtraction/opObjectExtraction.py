@@ -78,77 +78,61 @@ class OpLabelImage(Operator):
             print "Unknown dirty input slot: " + str(slot.name)
 
 
-def opFeaturesFactory(name, features):
-    """An operator factory producing an operator that calculates a
-    specific set of features.
+class OpRegionFeatures(Operator):
+    LabelImage = InputSlot()
+    Output = OutputSlot(stype=Opaque, rtype=List)
 
-    """
-    class cls(Operator):
-        LabelImage = InputSlot()
-        Output = OutputSlot(stype=Opaque, rtype=List)
+    def __init__(self, features, parent=None, graph=None):
+        super(OpRegionFeatures, self).__init__(parent=parent,
+                                  graph=graph)
+        self._cache = {}
+        self.fixed = False
+        self.features = features
 
-        def __init__(self, parent=None, graph=None):
-            super(cls, self).__init__(parent=parent,
-                                      graph=graph)
-            self._cache = {}
-            self.fixed = False
+    def setupOutputs(self):
+        # number of time steps
+        self.Output.meta.shape = self.LabelImage.meta.shape[0:1]
+        self.Output.meta.dtype = object
 
-        def setupOutputs(self):
-            # number of time steps
-            self.Output.meta.shape = self.LabelImage.meta.shape[0:1]
-            self.Output.meta.dtype = object
+    def extract(self, a):
+        labels = numpy.asarray(a, dtype=numpy.uint32)
+        data = numpy.asarray(a, dtype=numpy.float32)
+        feats = vigra.analysis.extractRegionFeatures(data,
+                                                     labels,
+                                                     features=self.features,
+                                                     ignoreLabel=0)
+        return feats
 
-        @staticmethod
-        def extract(a):
-            labels = numpy.asarray(a, dtype=numpy.uint32)
-            data = numpy.asarray(a, dtype=numpy.float32)
-            feats = vigra.analysis.extractRegionFeatures(data,
-                                                         labels,
-                                                         features=features,
-                                                         ignoreLabel=0)
-            return feats
+    def execute(self, slot, subindex, roi, result):
+        if slot is not self.Output:
+            return
+        feats = {}
+        if len(roi) == 0:
+            roi = range(self.LabelImage.meta.shape[0])
+        for t in roi:
+            if t in self._cache:
+                feats_at = self._cache[t]
+            elif self.fixed:
+                feats_at = dict((f, numpy.asarray([[]])) for f in self.features)
+            else:
+                feats_at = []
+                lshape = self.LabelImage.meta.shape
+                numChannels = lshape[-1]
+                for c in range(numChannels):
+                    tcroi = SubRegion(self.LabelImage,
+                                      start = [t,] + (len(lshape) - 2) * [0,] + [c,],
+                                      stop = [t+1,] + list(lshape[1:-1]) + [c+1,])
+                    a = self.LabelImage.get(tcroi).wait()
+                    a = a[0,...,0] # assumes t,x,y,z,c
+                    feats_at.append(self.extract(a))
+                self._cache[t] = feats_at
+            feats[t] = feats_at
+        return feats
 
-        def execute(self, slot, subindex, roi, result):
-            if slot is not self.Output:
-                return
-            feats = {}
-            if len(roi) == 0:
-                roi = range(self.LabelImage.meta.shape[0])
-            for t in roi:
-                if t in self._cache:
-                    feats_at = self._cache[t]
-                elif self.fixed:
-                    feats_at = dict((f, numpy.asarray([[]])) for f in features)
-                else:
-                    feats_at = []
-                    lshape = self.LabelImage.meta.shape
-                    numChannels = lshape[-1]
-                    for c in range(numChannels):
-                        tcroi = SubRegion(self.LabelImage,
-                                          start = [t,] + (len(lshape) - 2) * [0,] + [c,],
-                                          stop = [t+1,] + list(lshape[1:-1]) + [c+1,])
-                        a = self.LabelImage.get(tcroi).wait()
-                        a = a[0,...,0] # assumes t,x,y,z,c
-                        feats_at.append(self.extract(a))
-                    self._cache[t] = feats_at
-                feats[t] = feats_at
-            return feats
-
-        def propagateDirty(self, slot, subindex, roi):
-            if slot is self.LabelImage:
-                self.Output.setDirty(List(self.Output,
-                                          range(roi.start[0], roi.stop[0])))
-
-    cls.__name__ = name
-    return cls
-
-OpRegionFeatures = opFeaturesFactory('OpRegionFeatures',
-                                     ['Count',
-                                      'RegionCenter',
-                                      'Coord<ArgMaxWeight>',
-                                      'Coord<Minimum>',
-                                      'Coord<Maximum>',
-                                  ])
+    def propagateDirty(self, slot, subindex, roi):
+        if slot is self.LabelImage:
+            self.Output.setDirty(List(self.Output,
+                                      range(roi.start[0], roi.stop[0])))
 
 
 class OpObjectCenterImage(Operator):
@@ -210,14 +194,22 @@ class OpObjectExtraction(Operator):
     RegionCenters = OutputSlot(stype=Opaque, rtype=List)
     RegionFeatures = OutputSlot(stype=Opaque, rtype=List)
 
+    default_features = [
+        'Count',
+        'RegionCenter',
+        'Coord<ArgMaxWeight>',
+        'Coord<Minimum>',
+        'Coord<Maximum>',
+    ]
+
     def __init__(self, parent=None, graph=None):
 
         super(OpObjectExtraction, self).__init__(parent=parent,
                                                  graph=graph)
 
         # internal operators
-        self._opLabelImage = OpLabelImage(parent=self, graph = graph)
-        self._opRegFeats = OpRegionFeatures(parent=self, graph = graph)
+        self._opLabelImage = OpLabelImage(parent=self, graph=graph)
+        self._opRegFeats = OpRegionFeatures(parent=self, graph=graph, features=self.default_features)
         self._opObjectCenterImage = OpObjectCenterImage(parent=self, graph=self.graph)
 
         # connect internal operators
