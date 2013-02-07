@@ -40,14 +40,14 @@
         <string notr="true"/>
        </property>
        <property name="text">
-        <string>Label Segmentation</string>
+        <string>Extract Objects</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="extractObjectsButton">
        <property name="text">
-        <string>Extract Objects</string>
+        <string>Calculate Features</string>
        </property>
       </widget>
      </item>
