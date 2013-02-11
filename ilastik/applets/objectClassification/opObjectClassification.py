@@ -17,6 +17,7 @@ from functools import partial
 
 from ilastik.applets.pixelClassification.opPixelClassification import OpShapeReader, OpMaxValue
 from ilastik.utility import OperatorSubView, MultiLaneOperatorABC, OpMultiLaneWrapper
+from ilastik.utility.mode import mode
 
 # Right now we only support having two types of objects.
 _MAXLABELS = 2
@@ -328,7 +329,8 @@ class OpObjectPredict(Operator):
                 prediction = numpy.vstack(predictions[t])
 
                 # take mode of each column
-                self.cache[t] = numpy.average(prediction, axis=0)
+                m, _ = mode(prediction, axis=0)
+                self.cache[t] = m
             final_predictions[t] = self.cache[t]
 
         return final_predictions
