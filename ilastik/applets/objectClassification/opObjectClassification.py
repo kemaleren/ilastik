@@ -213,10 +213,9 @@ class OpObjectTrain(Operator):
             # do the right thing.
             labels = self.Labels[i]([]).wait()
 
-            featsMatrix_tmp = []
-            labelsMatrix_tmp = []
-
             for t in feats:
+                featsMatrix_tmp = []
+                labelsMatrix_tmp = []
                 lab = labels[t].squeeze()
                 index = numpy.nonzero(lab)
                 labelsMatrix_tmp.append(lab[index])
@@ -227,8 +226,8 @@ class OpObjectTrain(Operator):
                     ft = numpy.asarray(value.squeeze())
                     featsMatrix_tmp.append(ft[index])
 
-            featMatrix.append(_concatenate(featsMatrix_tmp, axis=1))
-            labelsMatrix.append(_concatenate(labelsMatrix_tmp, axis=1))
+                featMatrix.append(_concatenate(featsMatrix_tmp, axis=1))
+                labelsMatrix.append(_concatenate(labelsMatrix_tmp, axis=1))
 
         if len(featMatrix) == 0 or len(labelsMatrix) == 0:
             result[:] = None
