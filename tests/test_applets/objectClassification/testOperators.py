@@ -27,7 +27,8 @@ class TestOpToImage(unittest.TestCase):
         map_ = {0 : np.array([10, 20, 30]),
                 1 : np.array([40, 50, 60, 70])}
         self.op.Image.setValue(segimg)
-        self.op.ObjectMap.setValue(map_)
+        self.op.ObjectMap.setValue(map_, dirtyroi=())
+        self.op.Features._setReady() # hack because we do not use features
         img = self.op.Output.value
 
         self.assertEquals(img[0, 49, 49, 49, 0], 0)

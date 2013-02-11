@@ -88,7 +88,7 @@ class OpRegionFeatures(Operator):
 
     def __init__(self, features, parent=None, graph=None):
         super(OpRegionFeatures, self).__init__(parent=parent,
-                                  graph=graph)
+                                               graph=graph)
         self._cache = {}
         self.fixed = False
         self.features = features
