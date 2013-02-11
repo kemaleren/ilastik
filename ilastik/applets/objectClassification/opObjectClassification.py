@@ -330,6 +330,9 @@ class OpObjectPredict(Operator):
 
                 # take mode of each column
                 m, _ = mode(prediction, axis=0)
+                m = m.squeeze()
+                assert m.ndim == 1
+                m[0] = 0
                 self.cache[t] = m
             final_predictions[t] = self.cache[t]
 
@@ -376,10 +379,6 @@ class OpToImage(Operator):
                 newTmap = numpy.zeros((idx + 1,))
                 newTmap[:len(tmap)] = tmap[:]
                 tmap = newTmap
-
-            # FIXME: necesssary because predictions for index 0 is for
-            # some reason not zero
-            tmap[0] = 0
 
             img[t] = tmap[img[t]]
 
