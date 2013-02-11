@@ -127,7 +127,7 @@ class OpObjectClassification(Operator, MultiLaneOperatorABC):
         labels = dict()
         for t in range(self.SegmentationImages[imageIndex].meta.shape[0]):
             labels[t] = numpy.zeros((2,))
-        self.LabelInputs[imageIndex].setValue(labels)
+        self.LabelInputs[imageIndex].setValue(labels, dirtyroi=())
 
     def setupOutputs(self):
         pass
@@ -333,7 +333,7 @@ class OpObjectPredict(Operator):
 
     def propagateDirty(self, slot, subindex, roi):
         self.cache = dict()
-        self.Predictions.setDirty([])
+        self.Predictions.setDirty(())
 
 
 class OpToImage(Operator):
@@ -386,7 +386,10 @@ class OpToImage(Operator):
             self.Output.setDirty(roi)
 
         elif slot is self.ObjectMap or slot is self.Features:
-            if roi._l == []:
+            # this is hacky. the gui's onClick() function calls
+            # setDirty with a (time, object) pair, while elsewhere we
+            # call setDirty with ().
+            if roi._l == ():
                 self.Output.setDirty(slice(None))
             else:
                 # for each dirty object, only set its bounding box dirty
