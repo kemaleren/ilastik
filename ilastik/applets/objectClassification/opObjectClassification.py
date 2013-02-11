@@ -306,7 +306,7 @@ class OpObjectPredict(Operator):
             predictions[t]  = [0] * len(forests)
 
         def predict_forest(t, number):
-            predictions[t][number] = forests[number].predictLabels(feats[t])
+            predictions[t][number] = forests[number].predictLabels(feats[t]).reshape(1, -1)
 
         # predict the data with all the forests in parallel
         pool = Pool()
@@ -324,8 +324,11 @@ class OpObjectPredict(Operator):
 
         for t in roi._l:
             if t not in self.cache:
-                prediction = numpy.dstack(predictions[t])
-                self.cache[t] = numpy.average(prediction, axis=2)
+                # shape (ForestCount, number of objects)
+                prediction = numpy.vstack(predictions[t])
+
+                # take mode of each column
+                self.cache[t] = numpy.average(prediction, axis=0)
             final_predictions[t] = self.cache[t]
 
         return final_predictions
