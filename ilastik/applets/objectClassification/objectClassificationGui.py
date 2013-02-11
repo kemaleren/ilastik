@@ -22,7 +22,7 @@ from volumina.api import \
     LazyflowSource, GrayscaleLayer, ColortableLayer, AlphaModulatedLayer, \
     ClickableColortableLayer, LazyflowSinkSource
 
-from volumina.brushingcontroler import ClickInterpreter2
+from volumina.interpreter import ClickInterpreter
 
 
 class ObjectClassificationGui(LabelingGui):
@@ -113,8 +113,8 @@ class ObjectClassificationGui(LabelingGui):
 
             # FIXME: labeling only possible after some strange
             # combination of selecting labels and layers
-            clickInt = ClickInterpreter2(self.editor, labellayer,
-                                         self.onClick)
+            clickInt = ClickInterpreter(self.editor, labellayer,
+                                        self.onClick, right=False, double=False)
             self.editor.brushingInterpreter = clickInt
 
             return labellayer, labelsrc
