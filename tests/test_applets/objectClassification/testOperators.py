@@ -6,6 +6,14 @@ from ilastik.applets.objectClassification.opObjectClassification import \
 from ilastik.applets.objectExtraction.opObjectExtraction import \
     OpRegionFeatures
 
+FEATURES = [
+    'Count',
+    'RegionCenter',
+    'Coord<ArgMaxWeight>',
+    'Coord<Minimum>',
+    'Coord<Maximum>',
+]
+
 
 def segImage():
     img = np.zeros((2, 50, 50, 50, 1), dtype=np.int)
@@ -31,8 +39,8 @@ class TestOpToImage(unittest.TestCase):
         self.op.Features._setReady() # hack because we do not use features
         img = self.op.Output.value
 
-        self.assertEquals(img[0, 49, 49, 49, 0], 0)
-        self.assertEquals(img[1, 49, 49, 49, 0], 0)
+        self.assertEquals(img[0, 49, 49, 49, 0], 10)
+        self.assertEquals(img[1, 49, 49, 49, 0], 40)
         self.assertTrue(np.all(img[0,  0:10,  0:10,  0:10, 0] == 20))
         self.assertTrue(np.all(img[0, 20:25, 20:25, 20:25, 0] == 30))
         self.assertTrue(np.all(img[1,  0:10,  0:10,  0:10, 0] == 50))
@@ -43,26 +51,26 @@ class TestOpToImage(unittest.TestCase):
 class TestOpObjectTrain(unittest.TestCase):
     def setUp(self):
         g = Graph()
-        self.featsop = OpRegionFeatures(graph=g)
+        self.featsop = OpRegionFeatures(features=FEATURES, graph=g)
         self.op = OpObjectTrain(graph=g)
         self.op.Features.resize(1)
         self.op.Labels.resize(1)
 
         segimg = segImage()
-        self.featsop.SegmentationImage.setValue(segimg)
-        self.op.Features[0].connect(self.featsop.RegionFeatures)
+        self.featsop.LabelImage.setValue(segimg)
+        self.op.Features[0].connect(self.featsop.Output)
 
     def test_train(self):
         labels = {0 : np.array([0, 1, 2]),
                   1 : np.array([0, 1, 1, 2])}
-        self.op.Labels.setValue(labels)
+        self.op.Labels.setValue(labels, dirtyroi=())
         classifier = self.op.Classifier.value
 
 
 class TestOpObjectPredict(unittest.TestCase):
     def setUp(self):
         g = Graph()
-        self.featsop = OpRegionFeatures(graph=g)
+        self.featsop = OpRegionFeatures(features=FEATURES, graph=g)
         self.trainop = OpObjectTrain(graph=g)
         self.op = OpObjectPredict(graph=g)
 
@@ -71,30 +79,23 @@ class TestOpObjectPredict(unittest.TestCase):
 
         self.op.LabelsCount.setValue(2)
 
-        self.trainop.Features.connect(self.featsop.RegionFeatures)
+        self.trainop.Features.connect(self.featsop.Output)
         self.op.Classifier.connect(self.trainop.Classifier)
 
         segimg = segImage()
         labels = {0 : np.array([0, 1, 2]),
                   1 : np.array([0, 0, 0, 0,])}
 
-        self.featsop.SegmentationImage.setValue(segimg)
-        self.trainop.Features[0].connect(self.featsop.RegionFeatures)
-        self.trainop.Labels.setValue(labels)
+        self.featsop.LabelImage.setValue(segimg)
+        self.trainop.Features[0].connect(self.featsop.Output)
+        self.trainop.Labels.setValue(labels, dirtyroi=())
 
-        self.op.Features.connect(self.featsop.RegionFeatures)
+        self.op.Features.connect(self.featsop.Output)
 
     def test_train(self):
-        preds = self.op.Predictions[()].wait()
+        preds = self.op.Predictions([0, 1]).wait()
         self.assertTrue(np.all(preds[0] == np.array([0, 1, 2])))
         self.assertTrue(np.all(preds[1] == np.array([0, 1, 1, 2])))
-
-
-    def test_train_value(self):
-        v1 = self.op.Predictions.value
-        v2 = self.op.Predictions[()].wait()
-
-
 
 if __name__ == '__main__':
     unittest.main()
