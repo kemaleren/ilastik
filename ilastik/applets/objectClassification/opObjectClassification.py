@@ -17,15 +17,23 @@ from functools import partial
 
 from ilastik.applets.pixelClassification.opPixelClassification import OpShapeReader, OpMaxValue
 from ilastik.utility import OperatorSubView, MultiLaneOperatorABC, OpMultiLaneWrapper
+
+# Right now we only support having two types of objects.
 _MAXLABELS = 2
 
+# Features that are uninformative for classification purposes, but
+# calculated for other reasons.
 USELESS_FEATS = ['RegionCenter',
                  'Coord<Minimum>',
                  'Coord<Maximum>',
+                 # FIXME: duplicate features with space before '>'
                  'Coord<Minimum >',
                  'Coord<Maximum >',
 ]
 
+# WARNING: since we assume the input image is binary, we also assume
+# that it only has one channel. If there are multiple channels, only
+# features from the first channel are used in this operater.
 
 class OpObjectClassification(Operator, MultiLaneOperatorABC):
     name = "OpObjectClassification"
@@ -253,6 +261,12 @@ class OpObjectTrain(Operator):
 
 
 class OpObjectPredict(Operator):
+    # WARNING: right now we predict and cache a whole time slice. We
+    # expect this to be fast because there are relatively few objects
+    # compared to the number of pixels in pixel classification. If
+    # this should be too slow, we should instead cache at the object
+    # level, and only predict for objects visible in the roi.
+
     name = "OpObjectPredict"
 
     Features = InputSlot(rtype=List)
@@ -275,10 +289,6 @@ class OpObjectPredict(Operator):
             # this happens if there was no data to train with
             return numpy.zeros(numpy.subtract(roi.stop, roi.start),
                                dtype=numpy.float32)[...]
-
-        # FIXME: right now we predict and cache a whole time slice. We
-        # should instead cache at the object level, and only predict
-        # for objects visible in the roi.
         feats = {}
         predictions = {}
         for t in roi._l:
